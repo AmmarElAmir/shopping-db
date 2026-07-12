@@ -15,10 +15,10 @@ create table if not exists products (
   price numeric(12,2),
   currency text default 'AED',
   store text,
+  product_link text,       -- link to the product/store page
   description text,
   category_id uuid references categories(id) on delete set null,
-  image_url text,
-  product_url text,        -- link to the product page, if one was shared; makes the card clickable
+  image_url text,          -- public URL of an uploaded photo (see storage bucket below), or an external image URL
   source text not null default 'manual' check (source in ('manual', 'online')),
   is_favorite boolean not null default false,
   is_purchased boolean not null default false,
@@ -68,5 +68,17 @@ create policy "public update products" on products for update using (true);
 create policy "public read comparisons" on comparisons for select using (true);
 create policy "public write comparisons" on comparisons for insert with check (true);
 
--- Migration (already applied to the live project via Supabase MCP on 2026-07-13):
--- alter table products add column if not exists product_url text;
+-- Storage bucket for uploaded product photos
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "public read product images" on storage.objects;
+create policy "public read product images"
+on storage.objects for select
+using (bucket_id = 'product-images');
+
+drop policy if exists "public upload product images" on storage.objects;
+create policy "public upload product images"
+on storage.objects for insert
+with check (bucket_id = 'product-images');
