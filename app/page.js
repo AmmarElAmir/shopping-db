@@ -67,15 +67,14 @@ export default function ProductsPage() {
       ) : (
         <div className="grid">
           {filtered.map((p) => {
-            const CardTag = p.product_url ? "a" : "div";
-            const cardProps = p.product_url
-              ? { href: p.product_url, target: "_blank", rel: "noopener noreferrer" }
-              : {};
+            const link = p.product_link || p.product_url;
+            const CardTag = link ? "a" : "div";
+            const cardProps = link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
             return (
-              <CardTag className={`card${p.product_url ? " card-link" : ""}`} key={p.id} {...cardProps}>
+              <CardTag className={`card${link ? " card-link" : ""}`} key={p.id} {...cardProps}>
                 <div className="card-image-wrap">
                   {p.image_url ? <img src={p.image_url} alt={p.name} /> : <div style={{ height: 150, background: "#eee" }} />}
-                  {p.product_url && <span className="link-icon" aria-label="Opens product page">↗</span>}
+                  {link && <span className="link-icon" aria-label="Opens product page">↗</span>}
                 </div>
                 <div className="card-body">
                   <div className="card-title">{p.name}</div>
