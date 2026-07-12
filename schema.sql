@@ -18,6 +18,7 @@ create table if not exists products (
   description text,
   category_id uuid references categories(id) on delete set null,
   image_url text,
+  product_url text,        -- link to the product page, if one was shared; makes the card clickable
   source text not null default 'manual' check (source in ('manual', 'online')),
   is_favorite boolean not null default false,
   is_purchased boolean not null default false,
@@ -66,3 +67,6 @@ create policy "public write products" on products for insert with check (true);
 create policy "public update products" on products for update using (true);
 create policy "public read comparisons" on comparisons for select using (true);
 create policy "public write comparisons" on comparisons for insert with check (true);
+
+-- Migration (already applied to the live project via Supabase MCP on 2026-07-13):
+-- alter table products add column if not exists product_url text;

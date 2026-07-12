@@ -66,22 +66,31 @@ export default function ProductsPage() {
         <p className="empty">No products yet. Send Claude a brief and it'll land here.</p>
       ) : (
         <div className="grid">
-          {filtered.map((p) => (
-            <div className="card" key={p.id}>
-              {p.image_url ? <img src={p.image_url} alt={p.name} /> : <div style={{ height: 150, background: "#eee" }} />}
-              <div className="card-body">
-                <div className="card-title">{p.name}</div>
-                <div className="card-meta">{p.store} · {p.categories?.name || "Uncategorized"}</div>
-                {p.price != null && <div className="card-price">{p.currency || "AED"} {p.price}</div>}
-                <p style={{ fontSize: 13, color: "#555" }}>{p.description}</p>
-                <div className="badges">
-                  {p.is_favorite && <span className="badge fav">Favorite</span>}
-                  {p.is_purchased && <span className="badge purchased">Purchased</span>}
-                  {p.source === "online" && <span className="badge online">Online</span>}
+          {filtered.map((p) => {
+            const CardTag = p.product_url ? "a" : "div";
+            const cardProps = p.product_url
+              ? { href: p.product_url, target: "_blank", rel: "noopener noreferrer" }
+              : {};
+            return (
+              <CardTag className={`card${p.product_url ? " card-link" : ""}`} key={p.id} {...cardProps}>
+                <div className="card-image-wrap">
+                  {p.image_url ? <img src={p.image_url} alt={p.name} /> : <div style={{ height: 150, background: "#eee" }} />}
+                  {p.product_url && <span className="link-icon" aria-label="Opens product page">↗</span>}
                 </div>
-              </div>
-            </div>
-          ))}
+                <div className="card-body">
+                  <div className="card-title">{p.name}</div>
+                  <div className="card-meta">{p.store} · {p.categories?.name || "Uncategorized"}</div>
+                  {p.price != null && <div className="card-price">{p.currency || "AED"} {p.price}</div>}
+                  <p style={{ fontSize: 13, color: "#555" }}>{p.description}</p>
+                  <div className="badges">
+                    {p.is_favorite && <span className="badge fav">Favorite</span>}
+                    {p.is_purchased && <span className="badge purchased">Purchased</span>}
+                    {p.source === "online" && <span className="badge online">Online</span>}
+                  </div>
+                </div>
+              </CardTag>
+            );
+          })}
         </div>
       )}
     </div>

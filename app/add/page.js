@@ -14,6 +14,7 @@ export default function AddProductPage() {
     description: "",
     category_id: "",
     image_url: "",
+    product_url: "",
     source: "manual",
     is_favorite: false,
     is_purchased: false,
@@ -47,6 +48,7 @@ export default function AddProductPage() {
       description: form.description,
       category_id: categoryId || null,
       image_url: form.image_url || null,
+      product_url: form.product_url || null,
       source: form.source,
       is_favorite: form.is_favorite,
       is_purchased: form.is_purchased,
@@ -96,6 +98,9 @@ export default function AddProductPage() {
 
         <label>Image URL</label>
         <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+
+        <label>Product link (makes the card clickable)</label>
+        <input value={form.product_url} onChange={(e) => setForm({ ...form, product_url: e.target.value })} placeholder="https://..." />
 
         <label>Source</label>
         <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
