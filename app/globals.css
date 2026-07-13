@@ -5,8 +5,8 @@
   /* surfaces */
   --bg: #f7f7f8;
   --surface: #ffffff;
-  --header-bg: rgba(247, 247, 248, 0.6);
-  --header-border: #ececec;
+  --header-bg: rgba(237, 237, 253, 0.6);
+  --header-border: #fefeff;
   --card-border: #e5e5e5;
   --input-border: #ddd;
 
@@ -37,7 +37,7 @@
   --radius-pill: 999px;
   --radius-round: 88px;
   --shadow-tag: 0px 1px 1.5px rgba(0, 0, 0, 0.15);
-  --shadow-header: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  --shadow-header: 0px 2px 20px 0px rgba(107, 107, 196, 0.1);
 }
 
 * { box-sizing: border-box; }
@@ -67,7 +67,7 @@ body {
   border-radius: 128px;
   box-shadow: var(--shadow-header);
   backdrop-filter: blur(8px);
-  padding: 25px 40px;
+  padding: 25px 65px;
 }
 .brand {
   font-weight: 700;
@@ -157,10 +157,17 @@ main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
    ========================================================================== */
 .category-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 10px;
   margin-bottom: 20px;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding-left: calc(50vw - 50%);
+  padding-right: calc(50vw - 50%);
+  scrollbar-width: none;
 }
+.category-filters::-webkit-scrollbar { display: none; }
 .category-pill {
   background: var(--surface);
   border: 1px solid var(--category-pill-border);
@@ -209,11 +216,11 @@ a.card.card-link:hover {
 
 .card-image-wrap {
   position: relative;
-  aspect-ratio: 314 / 216;
+  height: 324px;
   width: 100%;
   background: #eee;
 }
-.card-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-image-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
 
 .card-tags-top {
   position: absolute;
@@ -233,11 +240,14 @@ a.card.card-link:hover {
   justify-content: center;
   box-shadow: var(--shadow-tag);
   border: none;
-  cursor: default;
+  cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
 }
-.tag-icon.bought { background: var(--bought-bg); }
-.tag-icon.fav { background: var(--fav-bg); }
+.tag-icon.bought.on { background: var(--bought-bg); }
+.tag-icon.bought.off { background: #f0f4f0; }
+.tag-icon.fav.on { background: var(--fav-bg); }
+.tag-icon.fav.off { background: #f6f1f2; }
 .tag-icon svg { width: 12px; height: 12px; display: block; }
 
 .card-tags-bottom {
@@ -261,15 +271,15 @@ a.card.card-link:hover {
 }
 .meta-badges { display: flex; gap: 4px; align-items: center; }
 .meta-badge {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-pill);
   background: var(--category-bg);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.meta-badge svg { width: 12px; height: 12px; display: block; }
+.meta-badge svg { width: 16px; height: 16px; display: block; }
 
 .card-body {
   padding: 12px;
