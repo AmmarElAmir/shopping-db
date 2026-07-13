@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { IconChevronDown } from "../../lib/icons";
+import { IconChevronDown, IconMic } from "../../lib/icons";
 
 export default function AddProductPage() {
   const [categories, setCategories] = useState([]);
@@ -25,9 +25,55 @@ export default function AddProductPage() {
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const baseDescriptionRef = useRef("");
+  const finalTranscriptRef = useRef("");
+
   useEffect(() => {
     supabase.from("categories").select("*").order("name").then(({ data }) => setCategories(data || []));
   }, []);
+
+  useEffect(() => {
+    setSpeechSupported(typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+    return () => recognitionRef.current?.stop();
+  }, []);
+
+  function toggleDictation() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionImpl();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    baseDescriptionRef.current = form.description ? `${form.description} ` : "";
+    finalTranscriptRef.current = "";
+
+    recognition.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscriptRef.current += `${transcript} `;
+        } else {
+          interim += transcript;
+        }
+      }
+      setForm((f) => ({ ...f, description: baseDescriptionRef.current + finalTranscriptRef.current + interim }));
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+
+    recognition.start();
+    recognitionRef.current = recognition;
+    setListening(true);
+  }
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];
@@ -137,7 +183,20 @@ export default function AddProductPage() {
         </div>
 
         <div className="form-field">
-          <label className="field-label">Description</label>
+          <div className="field-label-row">
+            <label className="field-label">Description</label>
+            {speechSupported && (
+              <button
+                type="button"
+                className={`mic-btn${listening ? " listening" : ""}`}
+                title={listening ? "Stop dictation" : "Dictate description"}
+                aria-pressed={listening}
+                onClick={toggleDictation}
+              >
+                <IconMic />
+              </button>
+            )}
+          </div>
           <textarea
             className="field-textarea"
             value={form.description}
