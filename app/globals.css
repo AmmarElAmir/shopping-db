@@ -1,96 +1,340 @@
+/* ==========================================================================
+   Design tokens — sourced from Figma "Shopping-DB" file, PLP frame (node 1:3)
+   ========================================================================== */
+:root {
+  /* surfaces */
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --header-bg: rgba(247, 247, 248, 0.6);
+  --header-border: #ececec;
+  --card-border: #e5e5e5;
+  --input-border: #ddd;
+
+  /* text */
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-body: #555555;
+  --text-muted: #5d5d5d;
+  --text-placeholder: #757575;
+
+  /* brand */
+  --brand: #607cff;
+  --brand-active-nav: #000d4b;
+  --brand-nav-link: #4667ff;
+
+  /* category pill */
+  --category-text: #3e60ff;
+  --category-bg: #eef1ff;
+  --category-pill-border: #aebcff;
+
+  /* status tags */
+  --fav-bg: #ffe8ec;
+  --bought-bg: #d7fed9;
+
+  /* misc */
+  --toggle-off: #dedede;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+  --radius-round: 88px;
+  --shadow-tag: 0px 1px 1.5px rgba(0, 0, 0, 0.15);
+  --shadow-header: 0px 4px 4px rgba(0, 0, 0, 0.25);
+}
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #f7f7f8;
-  color: #1a1a1a;
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+/* ==========================================================================
+   Header — sticky, floating pill nav bar
+   ========================================================================== */
+.topbar-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 16px 48px 0;
 }
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e5e5e5;
+  background: var(--header-bg);
+  border: 1px solid var(--header-border);
+  border-radius: 128px;
+  box-shadow: var(--shadow-header);
+  backdrop-filter: blur(8px);
+  padding: 25px 40px;
 }
-.brand { font-weight: 700; text-decoration: none; color: #1a1a1a; }
-nav a {
-  margin-left: 20px;
+.brand {
+  font-weight: 700;
+  font-size: 22.7px;
+  letter-spacing: -0.45px;
   text-decoration: none;
-  color: #444;
-  font-size: 14px;
+  color: var(--brand);
 }
-main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+nav.nav-links { display: flex; gap: 20px; align-items: center; }
+nav.nav-links a {
+  text-decoration: none;
+  font-size: 14px;
+  letter-spacing: -0.15px;
+  padding: 8px;
+  color: var(--brand-nav-link);
+  font-weight: 400;
+}
+nav.nav-links a.active {
+  color: var(--brand-active-nav);
+  font-weight: 600;
+}
 
-.filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.filters select, .filters input {
-  padding: 8px 10px;
-  border: 1px solid #ddd;
+main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
+
+/* ==========================================================================
+   Filters row — search + toggle switches
+   ========================================================================== */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
+  margin-bottom: 20px;
+}
+.search-input {
+  background: var(--surface);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
+  padding: 9px 10px;
   font-size: 14px;
+  color: var(--text-primary);
+  height: 35px;
+}
+.search-input::placeholder { color: var(--text-placeholder); }
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  height: 35px;
+  font-size: 16px;
+  letter-spacing: -0.32px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-switch {
+  width: 24px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  border: none;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  background: var(--toggle-off);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.toggle-switch.on { background: var(--brand); }
+.toggle-switch .thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transform: translateY(-50%);
+  transition: left 0.15s ease;
+}
+.toggle-switch.on .thumb { left: 8px; }
+
+/* ==========================================================================
+   Category pills
+   ========================================================================== */
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.category-pill {
+  background: var(--surface);
+  border: 1px solid var(--category-pill-border);
+  color: var(--category-text);
+  font-size: 13px;
+  letter-spacing: -0.08px;
+  padding: 6px 8px;
+  border-radius: var(--radius-round);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.category-pill.selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
 }
 
+/* ==========================================================================
+   Product grid + cards
+   ========================================================================== */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(253px, 1fr));
+  gap: 24px;
 }
 .card {
-  background: white;
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   color: inherit;
   text-decoration: none;
+  max-width: 400px;
 }
 a.card.card-link {
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 a.card.card-link:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
   border-color: #ccc;
 }
-.card-image-wrap { position: relative; }
-.card img { width: 100%; height: 150px; object-fit: cover; background: #eee; }
-.link-icon {
+
+.card-image-wrap {
+  position: relative;
+  aspect-ratio: 314 / 216;
+  width: 100%;
+  background: #eee;
+}
+.card-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.card-tags-top {
   position: absolute;
-  top: 8px;
+  top: 9px;
+  left: 8px;
   right: 8px;
-  background: rgba(255,255,255,0.92);
-  border-radius: 999px;
-  width: 24px;
-  height: 24px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.tag-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-tag);
+  border: none;
+  cursor: default;
+  flex-shrink: 0;
 }
-.card-body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.card-title { font-weight: 600; font-size: 15px; }
-.card-meta { font-size: 13px; color: #666; }
-.card-price { font-weight: 700; font-size: 15px; margin-top: 4px; }
-.badges { display: flex; gap: 6px; margin-top: 6px; }
-.badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #eef;
-  color: #334;
-}
-.badge.fav { background: #ffe9e9; color: #a33; }
-.badge.purchased { background: #e6f7ea; color: #2a7; }
-.badge.online { background: #fff4dd; color: #a70; }
+.tag-icon.bought { background: var(--bought-bg); }
+.tag-icon.fav { background: var(--fav-bg); }
+.tag-icon svg { width: 12px; height: 12px; display: block; }
 
+.card-tags-bottom {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  padding: 0 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+.category-badge {
+  background: var(--category-bg);
+  color: var(--category-text);
+  font-size: 13px;
+  letter-spacing: -0.08px;
+  padding: 4px 8px;
+  border-radius: var(--radius-round);
+  white-space: nowrap;
+}
+.meta-badges { display: flex; gap: 4px; align-items: center; }
+.meta-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--category-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.meta-badge svg { width: 12px; height: 12px; display: block; }
+
+.card-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.24px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-store {
+  font-size: 13px;
+  letter-spacing: -0.08px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-price {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-weight: 600;
+  letter-spacing: -0.24px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.card-price .currency { font-size: 12px; color: var(--text-muted); }
+.card-price .amount { font-size: 15px; color: var(--text-primary); }
+.card-description {
+  font-size: 13px;
+  letter-spacing: -0.08px;
+  color: var(--text-body);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.empty { color: #888; padding: 40px 0; text-align: center; }
+
+/* ==========================================================================
+   Add-product form (kept simple, aligned to the same tokens)
+   ========================================================================== */
 form { display: flex; flex-direction: column; gap: 12px; max-width: 480px; }
 form label { font-size: 13px; font-weight: 600; }
 form input, form textarea, form select {
   padding: 8px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   font-size: 14px;
   width: 100%;
@@ -99,10 +343,9 @@ form button {
   padding: 10px 16px;
   border: none;
   border-radius: 6px;
-  background: #111;
+  background: var(--text-primary);
   color: white;
   font-weight: 600;
   cursor: pointer;
   width: fit-content;
 }
-.empty { color: #888; padding: 40px 0; text-align: center; }

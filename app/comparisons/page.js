@@ -32,7 +32,7 @@ export default function ComparisonsPage() {
         comparisons.map((c) => (
           <div key={c.id} className="card" style={{ marginBottom: 16, padding: 16 }}>
             <h3 style={{ margin: "0 0 6px" }}>{c.title}</h3>
-            <div className="card-meta">{c.categories?.name}</div>
+            <div className="card-store">{c.categories?.name}</div>
             <p style={{ whiteSpace: "pre-wrap" }}>{c.summary}</p>
           </div>
         ))
