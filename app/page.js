@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { IconCartCheck, IconHeart, IconSparkle, IconLink } from "../lib/icons";
+import { IconCartCheck, IconHeart, IconSparkle, IconLink, IconTrash } from "../lib/icons";
 
 function Toggle({ on, onClick, label }) {
   return (
@@ -21,7 +21,7 @@ function Toggle({ on, onClick, label }) {
   );
 }
 
-function ProductCard({ p, categoryName, onToggleTag }) {
+function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
   const link = p.product_link || p.product_url;
   const CardTag = link ? "a" : "div";
   const cardProps = link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
@@ -31,6 +31,12 @@ function ProductCard({ p, categoryName, onToggleTag }) {
     e.preventDefault();
     e.stopPropagation();
     onToggleTag(p, field);
+  }
+
+  function handleDeleteClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteRequest(p);
   }
 
   return (
@@ -57,6 +63,14 @@ function ProductCard({ p, categoryName, onToggleTag }) {
             onClick={(e) => handleToggle(e, "is_favorite")}
           >
             <IconHeart on={p.is_favorite} />
+          </button>
+          <button
+            type="button"
+            className="tag-icon delete"
+            title="Delete product"
+            onClick={handleDeleteClick}
+          >
+            <IconTrash />
           </button>
         </div>
         <div className="card-tags-bottom">
@@ -88,6 +102,27 @@ function ProductCard({ p, categoryName, onToggleTag }) {
   );
 }
 
+function DeleteConfirmModal({ product, onCancel, onConfirm, deleting }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">Delete product?</h2>
+        <p className="modal-body">
+          This will permanently delete <strong>{product.name}</strong>. This can't be undone.
+        </p>
+        <div className="modal-actions">
+          <button type="button" className="modal-btn cancel" onClick={onCancel} disabled={deleting}>
+            Cancel
+          </button>
+          <button type="button" className="modal-btn confirm-delete" onClick={onConfirm} disabled={deleting}>
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -96,6 +131,8 @@ export default function ProductsPage() {
   const [favOnly, setFavOnly] = useState(false);
   const [hidePurchased, setHidePurchased] = useState(false);
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -126,6 +163,16 @@ export default function ProductsPage() {
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, [field]: product[field] } : p))
       );
+    }
+  }
+
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    const { error } = await supabase.from("products").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (!error) {
+      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
     }
   }
 
@@ -177,9 +224,24 @@ export default function ProductsPage() {
       ) : (
         <div className="grid">
           {filtered.map((p) => (
-            <ProductCard key={p.id} p={p} categoryName={p.categories?.name} onToggleTag={handleToggleTag} />
+            <ProductCard
+              key={p.id}
+              p={p}
+              categoryName={p.categories?.name}
+              onToggleTag={handleToggleTag}
+              onDeleteRequest={setDeleteTarget}
+            />
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          product={deleteTarget}
+          deleting={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleConfirmDelete}
+        />
       )}
     </div>
   );
