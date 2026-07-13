@@ -13,6 +13,7 @@ export default function RootLayout({ children }) {
           <a href="/" className="brand">Dubai Shopping DB</a>
           <nav>
             <a href="/">Products</a>
+            <a href="/submit">Submit</a>
             <a href="/add">Add product</a>
             <a href="/comparisons">Comparisons</a>
           </nav>
