@@ -104,25 +104,24 @@ export default function AddProductPage() {
         write up and insert the record for you.
       </p>
       <form className="add-form" onSubmit={handleSubmit}>
-        <div className="form-row">
-          <div className="form-field">
-            <label className="field-label">Photo</label>
-            <div className="field-file-wrap">
-              <label className="field-file-label" htmlFor="photo-upload">
-                {photoFile ? photoFile.name : "Choose File"}
-              </label>
-              <input id="photo-upload" className="field-file-input" type="file" accept="image/*" onChange={handlePhotoChange} />
-            </div>
-            {photoPreview && <img src={photoPreview} alt="Preview" className="photo-preview" />}
+        <div className="form-field">
+          <label className="field-label">Photo</label>
+          <div className="field-file-wrap">
+            <label className="field-file-label" htmlFor="photo-upload">
+              {photoFile ? photoFile.name : "Choose File"}
+            </label>
+            <input id="photo-upload" className="field-file-input" type="file" accept="image/*" onChange={handlePhotoChange} />
           </div>
-          <div className="form-field">
-            <label className="field-label">Or image URL</label>
-            <input
-              className="field-input"
-              value={form.image_url}
-              onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            />
-          </div>
+          {photoPreview && <img src={photoPreview} alt="Preview" className="photo-preview" />}
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">Or image URL</label>
+          <input
+            className="field-input"
+            value={form.image_url}
+            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+          />
         </div>
 
         <div className="form-field">
@@ -144,83 +143,65 @@ export default function AddProductPage() {
           />
         </div>
 
-        <div className="form-row">
-          <div className="form-field">
-            <label className="field-label">Price</label>
-            <input
-              className="field-input"
-              type="number"
-              step="0.01"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-            />
-          </div>
-          <div className="form-field">
-            <label className="field-label">Currency</label>
-            <input
-              className="field-input"
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            />
-          </div>
+        <div className="form-field">
+          <label className="field-label">Price</label>
+          <input
+            className="field-input"
+            type="number"
+            step="0.01"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+          />
         </div>
 
-        <div className="form-row">
-          <div className="form-field">
-            <label className="field-label">Store</label>
-            <input className="field-input" value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
-          </div>
-          <div className="form-field">
-            <label className="field-label">Product / store link</label>
-            <input
-              className="field-input"
-              type="url"
-              placeholder="https://..."
-              value={form.product_link}
-              onChange={(e) => setForm({ ...form, product_link: e.target.value })}
-            />
-          </div>
+        <div className="form-field">
+          <label className="field-label">Currency</label>
+          <input
+            className="field-input"
+            value={form.currency}
+            onChange={(e) => setForm({ ...form, currency: e.target.value })}
+          />
         </div>
 
-        <div className="form-row">
-          <div className="form-field">
-            <label className="field-label">Category (existing)</label>
-            <div className="field-select-wrap">
-              <select
-                className="field-input field-select"
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-              >
-                <option value="">— none —</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <IconChevronDown />
-            </div>
-          </div>
-          <div className="form-field">
-            <label className="field-label">Or new category</label>
-            <input
-              className="field-input"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="e.g. Air fryers"
-            />
+        <div className="form-field">
+          <label className="field-label">Store</label>
+          <input className="field-input" value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">Product / store link</label>
+          <input
+            className="field-input"
+            type="url"
+            placeholder="https://..."
+            value={form.product_link}
+            onChange={(e) => setForm({ ...form, product_link: e.target.value })}
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">Category (existing)</label>
+          <div className="field-select-wrap">
+            <select
+              className="field-input field-select"
+              value={form.category_id}
+              onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+            >
+              <option value="">— none —</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <IconChevronDown />
           </div>
         </div>
 
         <div className="form-field">
-          <label className="field-label">Source</label>
-          <div className="field-select-wrap">
-            <select
-              className="field-input field-select"
-              value={form.source}
-              onChange={(e) => setForm({ ...form, source: e.target.value })}
-            >
-              <option value="manual">Manual</option>
-              <option value="online">Online</option>
-            </select>
-            <IconChevronDown />
-          </div>
+          <label className="field-label">Or new category</label>
+          <input
+            className="field-input"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            placeholder="e.g. Air fryers"
+          />
         </div>
 
         <button
