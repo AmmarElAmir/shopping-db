@@ -197,8 +197,10 @@ export default function ProductsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Toggle on={favOnly} onClick={() => setFavOnly((v) => !v)} label="Favorites Only" />
-        <Toggle on={hidePurchased} onClick={() => setHidePurchased((v) => !v)} label="Hide Purchased" />
+        <div className="filters-toggles">
+          <Toggle on={favOnly} onClick={() => setFavOnly((v) => !v)} label="Favorites Only" />
+          <Toggle on={hidePurchased} onClick={() => setHidePurchased((v) => !v)} label="Hide Purchased" />
+        </div>
       </div>
 
       <div className="category-filters">

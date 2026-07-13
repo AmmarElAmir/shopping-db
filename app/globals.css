@@ -92,6 +92,67 @@ nav.nav-links a.active {
   font-weight: 600;
 }
 
+.menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--brand-active-nav);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.menu-btn svg { width: 24px; height: 24px; }
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer {
+  background: var(--surface);
+  width: 78vw;
+  max-width: 300px;
+  height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+}
+.drawer-close {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--brand-active-nav);
+  cursor: pointer;
+  align-self: flex-end;
+  margin-bottom: 12px;
+}
+.drawer-close svg { width: 22px; height: 22px; }
+.drawer-links { display: flex; flex-direction: column; }
+.drawer-links a {
+  text-decoration: none;
+  font-size: 16px;
+  padding: 14px 8px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--brand-nav-link);
+  font-weight: 500;
+  border-bottom: 1px solid var(--card-border);
+}
+.drawer-links a.active { color: var(--brand-active-nav); font-weight: 700; }
+
 main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
 
 /* ==========================================================================
@@ -114,6 +175,7 @@ main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
   height: 35px;
 }
 .search-input::placeholder { color: var(--text-placeholder); }
+.filters-toggles { display: flex; align-items: center; gap: 0 10px; }
 
 .toggle-label {
   display: flex;
@@ -547,3 +609,57 @@ form button {
 }
 .btn-save:disabled { opacity: 0.6; cursor: default; }
 .add-status { font-size: 14px; color: var(--text-body); }
+
+/* ==========================================================================
+   Mobile (<=768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .topbar-wrap { padding: 12px 16px 0; }
+  .topbar { padding: 14px 18px; border-radius: 24px; }
+  .brand { font-size: 18px; }
+  nav.nav-links { display: none; }
+  .menu-btn { display: flex; }
+
+  main { padding: 16px 16px 24px; }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .search-input { width: 100%; height: 44px; }
+  .filters-toggles { width: 100%; justify-content: flex-start; gap: 24px; }
+  .toggle-label { min-height: 44px; font-size: 15px; }
+
+  .category-filters { gap: 8px; }
+  .category-pill {
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .card { max-width: none; }
+  .card-image-wrap { height: auto; aspect-ratio: 1 / 1; }
+  .card-body { padding: 10px; gap: 10px; }
+  .card-title { font-size: 14px; }
+  .card-description { -webkit-line-clamp: 2; }
+
+  .tag-icon { width: 36px; height: 36px; }
+  .tag-icon svg { width: 14px; height: 14px; }
+  .meta-badge { width: 32px; height: 32px; }
+  .meta-badge svg { width: 16px; height: 16px; }
+  .card-tags-top { gap: 6px; }
+
+  .modal-btn { min-height: 44px; padding: 10px 18px; }
+
+  .add-page-subtitle { max-width: 100%; }
+  .add-form { max-width: 100%; }
+  .form-row { flex-direction: column; gap: 20px; }
+  .btn-save, .favorite-toggle-btn { width: 100%; justify-content: center; min-height: 48px; }
+}
