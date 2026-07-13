@@ -128,6 +128,7 @@ main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
   user-select: none;
 }
 .toggle-switch {
+  display: inline-block;
   width: 24px;
   height: 12px;
   border-radius: var(--radius-pill);
@@ -417,3 +418,132 @@ form button {
 .modal-btn.cancel { background: var(--bg); color: var(--text-primary); }
 .modal-btn.confirm-delete { background: var(--danger); color: white; }
 .modal-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ==========================================================================
+   Add product page
+   ========================================================================== */
+.add-page-title {
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--brand-active-nav);
+  margin: 0 0 24px;
+}
+.add-page-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 700px;
+  margin: -16px 0 24px;
+}
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 700px;
+}
+.form-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 0 0;
+  min-width: 0;
+}
+.field-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--brand-active-nav);
+}
+.field-input, .field-textarea, .field-select {
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 0 12px;
+  height: 48px;
+  font-size: 14px;
+  color: var(--text-primary);
+  width: 100%;
+  font-family: inherit;
+}
+.field-input::placeholder, .field-textarea::placeholder { color: var(--text-placeholder); }
+.field-textarea {
+  height: 100px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.field-select-wrap { position: relative; width: 100%; }
+.field-select {
+  appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+}
+.field-select-wrap svg {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+.field-file-wrap { position: relative; height: 48px; width: 100%; }
+.field-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.field-file-label {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-placeholder);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.photo-preview {
+  margin-top: 8px;
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+}
+.favorite-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  padding: 12px 20px;
+  background: transparent;
+  cursor: pointer;
+  width: fit-content;
+}
+.favorite-toggle-btn span { font-weight: 600; font-size: 14px; color: #001eb0; }
+.btn-save {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  width: fit-content;
+}
+.btn-save:disabled { opacity: 0.6; cursor: default; }
+.add-status { font-size: 14px; color: var(--text-body); }

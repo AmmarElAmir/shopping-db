@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { IconChevronDown } from "../../lib/icons";
 
 export default function AddProductPage() {
   const [categories, setCategories] = useState([]);
@@ -97,67 +98,144 @@ export default function AddProductPage() {
 
   return (
     <div>
-      <h2>Add a product</h2>
-      <p style={{ color: "#666", fontSize: 14 }}>
+      <h2 className="add-page-title">Add a product</h2>
+      <p className="add-page-subtitle">
         Upload a photo and log the details manually here, or send Claude a brief in chat and it'll
         write up and insert the record for you.
       </p>
-      <form onSubmit={handleSubmit}>
-        <label>Photo</label>
-        <input type="file" accept="image/*" onChange={handlePhotoChange} />
-        {photoPreview && (
-          <img src={photoPreview} alt="Preview" style={{ width: 160, height: 120, objectFit: "cover", borderRadius: 6 }} />
-        )}
-        <label>Or image URL (used if no photo uploaded)</label>
-        <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+      <form className="add-form" onSubmit={handleSubmit}>
+        <div className="form-row">
+          <div className="form-field">
+            <label className="field-label">Photo</label>
+            <div className="field-file-wrap">
+              <label className="field-file-label" htmlFor="photo-upload">
+                {photoFile ? photoFile.name : "Choose File"}
+              </label>
+              <input id="photo-upload" className="field-file-input" type="file" accept="image/*" onChange={handlePhotoChange} />
+            </div>
+            {photoPreview && <img src={photoPreview} alt="Preview" className="photo-preview" />}
+          </div>
+          <div className="form-field">
+            <label className="field-label">Or image URL</label>
+            <input
+              className="field-input"
+              value={form.image_url}
+              onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+            />
+          </div>
+        </div>
 
-        <label>Name</label>
-        <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <div className="form-field">
+          <label className="field-label">Name</label>
+          <input
+            className="field-input"
+            required
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </div>
 
-        <label>Description</label>
-        <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        <div className="form-field">
+          <label className="field-label">Description</label>
+          <textarea
+            className="field-textarea"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </div>
 
-        <label>Price</label>
-        <input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+        <div className="form-row">
+          <div className="form-field">
+            <label className="field-label">Price</label>
+            <input
+              className="field-input"
+              type="number"
+              step="0.01"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label className="field-label">Currency</label>
+            <input
+              className="field-input"
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            />
+          </div>
+        </div>
 
-        <label>Currency</label>
-        <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+        <div className="form-row">
+          <div className="form-field">
+            <label className="field-label">Store</label>
+            <input className="field-input" value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
+          </div>
+          <div className="form-field">
+            <label className="field-label">Product / store link</label>
+            <input
+              className="field-input"
+              type="url"
+              placeholder="https://..."
+              value={form.product_link}
+              onChange={(e) => setForm({ ...form, product_link: e.target.value })}
+            />
+          </div>
+        </div>
 
-        <label>Store</label>
-        <input value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} />
+        <div className="form-row">
+          <div className="form-field">
+            <label className="field-label">Category (existing)</label>
+            <div className="field-select-wrap">
+              <select
+                className="field-input field-select"
+                value={form.category_id}
+                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+              >
+                <option value="">— none —</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <IconChevronDown />
+            </div>
+          </div>
+          <div className="form-field">
+            <label className="field-label">Or new category</label>
+            <input
+              className="field-input"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="e.g. Air fryers"
+            />
+          </div>
+        </div>
 
-        <label>Product / store link</label>
-        <input
-          type="url"
-          placeholder="https://..."
-          value={form.product_link}
-          onChange={(e) => setForm({ ...form, product_link: e.target.value })}
-        />
+        <div className="form-field">
+          <label className="field-label">Source</label>
+          <div className="field-select-wrap">
+            <select
+              className="field-input field-select"
+              value={form.source}
+              onChange={(e) => setForm({ ...form, source: e.target.value })}
+            >
+              <option value="manual">Manual</option>
+              <option value="online">Online</option>
+            </select>
+            <IconChevronDown />
+          </div>
+        </div>
 
-        <label>Category (existing)</label>
-        <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-          <option value="">— none —</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <button
+          type="button"
+          className="favorite-toggle-btn"
+          onClick={() => setForm({ ...form, is_favorite: !form.is_favorite })}
+        >
+          <span className={`toggle-switch${form.is_favorite ? " on" : ""}`} role="switch" aria-checked={form.is_favorite}>
+            <span className="thumb" />
+          </span>
+          <span>Favorite</span>
+        </button>
 
-        <label>Or new category</label>
-        <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="e.g. Air fryers" />
-
-        <label>Source</label>
-        <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
-          <option value="manual">Manual</option>
-          <option value="online">Online</option>
-        </select>
-
-        <label>
-          <input type="checkbox" checked={form.is_favorite} onChange={(e) => setForm({ ...form, is_favorite: e.target.checked })} /> Favorite
-        </label>
-        <label>
-          <input type="checkbox" checked={form.is_purchased} onChange={(e) => setForm({ ...form, is_purchased: e.target.checked })} /> Purchased
-        </label>
-
-        <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save product"}</button>
-        {status && <p>{status}</p>}
+        <button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save product"}</button>
+        {status && <p className="add-status">{status}</p>}
       </form>
     </div>
   );
