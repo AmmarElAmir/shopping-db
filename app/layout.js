@@ -1,5 +1,6 @@
 import "./globals.css";
 import NavLinks from "../lib/NavLinks";
+import { Agentation } from "agentation";
 
 export const metadata = {
   title: "Dubai Shopping Database",
@@ -17,6 +18,7 @@ export default function RootLayout({ children }) {
           </header>
         </div>
         <main>{children}</main>
+        {process.env.NODE_ENV === "development" && <Agentation />}
       </body>
     </html>
   );

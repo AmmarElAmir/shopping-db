@@ -21,11 +21,17 @@ function Toggle({ on, onClick, label }) {
   );
 }
 
-function ProductCard({ p, categoryName }) {
+function ProductCard({ p, categoryName, onToggleTag }) {
   const link = p.product_link || p.product_url;
   const CardTag = link ? "a" : "div";
   const cardProps = link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
   const isAiGenerated = Boolean(p.claude_notes);
+
+  function handleToggle(e, field) {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleTag(p, field);
+  }
 
   return (
     <CardTag className={`card${link ? " card-link" : ""}`} {...cardProps}>
@@ -36,12 +42,22 @@ function ProductCard({ p, categoryName }) {
           <div style={{ width: "100%", height: "100%", background: "#eee" }} />
         )}
         <div className="card-tags-top">
-          {p.is_purchased && (
-            <span className="tag-icon bought" title="Purchased"><IconCartCheck /></span>
-          )}
-          {p.is_favorite && (
-            <span className="tag-icon fav" title="Favorite"><IconHeart /></span>
-          )}
+          <button
+            type="button"
+            className={`tag-icon bought${p.is_purchased ? " on" : " off"}`}
+            title="Purchased"
+            onClick={(e) => handleToggle(e, "is_purchased")}
+          >
+            <IconCartCheck on={p.is_purchased} />
+          </button>
+          <button
+            type="button"
+            className={`tag-icon fav${p.is_favorite ? " on" : " off"}`}
+            title="Favorite"
+            onClick={(e) => handleToggle(e, "is_favorite")}
+          >
+            <IconHeart on={p.is_favorite} />
+          </button>
         </div>
         <div className="card-tags-bottom">
           <span className="category-badge">{categoryName || "Uncategorized"}</span>
@@ -97,6 +113,22 @@ export default function ProductsPage() {
     load();
   }, []);
 
+  async function handleToggleTag(product, field) {
+    const next = !product[field];
+    setProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, [field]: next } : p))
+    );
+    const { error } = await supabase
+      .from("products")
+      .update({ [field]: next })
+      .eq("id", product.id);
+    if (error) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, [field]: product[field] } : p))
+      );
+    }
+  }
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
@@ -145,7 +177,7 @@ export default function ProductsPage() {
       ) : (
         <div className="grid">
           {filtered.map((p) => (
-            <ProductCard key={p.id} p={p} categoryName={p.categories?.name} />
+            <ProductCard key={p.id} p={p} categoryName={p.categories?.name} onToggleTag={handleToggleTag} />
           ))}
         </div>
       )}
