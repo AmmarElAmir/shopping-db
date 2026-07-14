@@ -91,6 +91,14 @@ nav.nav-links a.active {
   color: var(--brand-active-nav);
   font-weight: 600;
 }
+.nav-icon-desktop {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin-left: 4px;
+}
 
 .menu-btn {
   display: none;
