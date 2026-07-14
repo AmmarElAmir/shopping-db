@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { IconCartCheck, IconHeart, IconSparkle, IconLink, IconTrash } from "../lib/icons";
+import SwipeToConfirmDelete from "./components/SwipeToConfirmDelete";
 
 function Toggle({ on, onClick, label }) {
   return (
@@ -114,9 +115,17 @@ function DeleteConfirmModal({ product, onCancel, onConfirm, deleting }) {
           <button type="button" className="modal-btn cancel" onClick={onCancel} disabled={deleting}>
             Cancel
           </button>
-          <button type="button" className="modal-btn confirm-delete" onClick={onConfirm} disabled={deleting}>
+          <button
+            type="button"
+            className="modal-btn confirm-delete desktop-only"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
             {deleting ? "Deleting…" : "Delete"}
           </button>
+        </div>
+        <div className="mobile-only">
+          <SwipeToConfirmDelete onConfirm={onConfirm} disabled={deleting} />
         </div>
       </div>
     </div>
