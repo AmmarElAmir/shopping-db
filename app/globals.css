@@ -480,6 +480,15 @@ form button {
   color: var(--text-body);
   line-height: 1.5;
 }
+.modal-error {
+  margin: -8px 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
 .modal-actions {
   display: flex;
   justify-content: flex-end;

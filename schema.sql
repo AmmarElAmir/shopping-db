@@ -65,6 +65,7 @@ create policy "public write categories" on categories for insert with check (tru
 create policy "public read products" on products for select using (true);
 create policy "public write products" on products for insert with check (true);
 create policy "public update products" on products for update using (true);
+create policy "public delete products" on products for delete using (true);
 create policy "public read comparisons" on comparisons for select using (true);
 create policy "public write comparisons" on comparisons for insert with check (true);
 

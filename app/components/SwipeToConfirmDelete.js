@@ -35,14 +35,18 @@ export default function SwipeToConfirmDelete({ onConfirm, disabled, label = "Sli
     setDragX(clamped);
   }
 
-  function handlePointerUp() {
+  async function handlePointerUp() {
     if (!dragging || disabled || confirmed) return;
     setDragging(false);
     const threshold = maxDragRef.current * 0.85;
     if (maxDragRef.current > 0 && dragX >= threshold) {
       setConfirmed(true);
       setDragX(maxDragRef.current);
-      onConfirm();
+      const success = await onConfirm();
+      if (!success) {
+        setConfirmed(false);
+        setDragX(0);
+      }
     } else {
       setDragX(0);
     }

@@ -103,7 +103,7 @@ function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
   );
 }
 
-function DeleteConfirmModal({ product, onCancel, onConfirm, deleting }) {
+function DeleteConfirmModal({ product, onCancel, onConfirm, deleting, error }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -111,6 +111,7 @@ function DeleteConfirmModal({ product, onCancel, onConfirm, deleting }) {
         <p className="modal-body">
           This will permanently delete <strong>{product.name}</strong>. This can't be undone.
         </p>
+        {error && <p className="modal-error">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="modal-btn cancel" onClick={onCancel} disabled={deleting}>
             Cancel
@@ -142,6 +143,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -177,12 +179,16 @@ export default function ProductsPage() {
 
   async function handleConfirmDelete() {
     setDeleting(true);
+    setDeleteError(null);
     const { error } = await supabase.from("products").delete().eq("id", deleteTarget.id);
     setDeleting(false);
-    if (!error) {
-      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-      setDeleteTarget(null);
+    if (error) {
+      setDeleteError(error.message || "Something went wrong. The item wasn't deleted — try again.");
+      return false;
     }
+    setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    return true;
   }
 
   const filtered = useMemo(() => {
@@ -240,7 +246,10 @@ export default function ProductsPage() {
               p={p}
               categoryName={p.categories?.name}
               onToggleTag={handleToggleTag}
-              onDeleteRequest={setDeleteTarget}
+              onDeleteRequest={(product) => {
+                setDeleteError(null);
+                setDeleteTarget(product);
+              }}
             />
           ))}
         </div>
@@ -250,7 +259,11 @@ export default function ProductsPage() {
         <DeleteConfirmModal
           product={deleteTarget}
           deleting={deleting}
-          onCancel={() => setDeleteTarget(null)}
+          error={deleteError}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }}
           onConfirm={handleConfirmDelete}
         />
       )}
