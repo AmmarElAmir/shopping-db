@@ -79,13 +79,18 @@ body {
   color: var(--brand);
 }
 nav.nav-links { display: flex; gap: 20px; align-items: center; }
-nav.nav-links a {
+nav.nav-links a,
+nav.nav-links button.nav-action {
   text-decoration: none;
   font-size: 14px;
   letter-spacing: -0.15px;
   padding: 8px;
   color: var(--brand-nav-link);
   font-weight: 400;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 nav.nav-links a.active {
   color: var(--brand-active-nav);
@@ -156,7 +161,8 @@ nav.nav-links a.active {
 }
 .drawer-close svg { width: 22px; height: 22px; }
 .drawer-links { display: flex; flex-direction: column; }
-.drawer-links a {
+.drawer-links a,
+.drawer-links button.nav-action {
   text-decoration: none;
   font-size: 16px;
   padding: 14px 8px;
@@ -166,6 +172,14 @@ nav.nav-links a.active {
   color: var(--brand-nav-link);
   font-weight: 500;
   border-bottom: 1px solid var(--card-border);
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
 }
 .drawer-links a.active { color: var(--brand-active-nav); font-weight: 700; }
 
@@ -504,6 +518,45 @@ form button {
 }
 .modal-btn.cancel { background: var(--bg); color: var(--text-primary); }
 .modal-btn.confirm-delete { background: var(--danger); color: white; }
+
+/* ==========================================================================
+   Bulk paste modal
+   ========================================================================== */
+.modal.modal-wide { max-width: 560px; }
+.bulk-paste-textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.bulk-paste-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+}
+.bulk-paste-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.bulk-paste-summary {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 13px;
+  color: var(--text-body);
+}
+.bulk-paste-summary strong { color: var(--text-primary); }
+.modal-btn.confirm-add { background: var(--brand); color: white; }
+.modal-btn.confirm-add:disabled { background: var(--brand); }
 .modal-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* ==========================================================================
