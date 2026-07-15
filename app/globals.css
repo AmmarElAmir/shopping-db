@@ -520,44 +520,72 @@ form button {
 .modal-btn.confirm-delete { background: var(--danger); color: white; }
 
 /* ==========================================================================
-   Bulk paste modal
+   Bulk paste / bulk queue
    ========================================================================== */
 .modal.modal-wide { max-width: 560px; }
-.bulk-paste-textarea {
+.modal-btn:disabled { opacity: 0.6; cursor: default; }
+
+.modal-actions-split {
+  justify-content: space-between;
+}
+.modal-btn.tertiary {
+  background: none;
+  color: var(--brand-nav-link);
+  padding: 9px 4px;
+}
+.modal-btn.tertiary:hover { text-decoration: underline; }
+
+.bulk-queue-panel { display: flex; flex-direction: column; }
+.bulk-paste-input {
   width: 100%;
-  min-height: 220px;
-  resize: vertical;
   padding: 12px 14px;
   border: 1px solid var(--input-border);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
-  line-height: 1.5;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .bulk-paste-hint {
   font-size: 12px;
   color: var(--text-secondary);
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
-.bulk-paste-count {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-.bulk-paste-summary {
-  margin: 0 0 16px;
-  padding: 12px 14px;
+.bulk-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
-  background: var(--bg);
-  font-size: 13px;
-  color: var(--text-body);
 }
-.bulk-paste-summary strong { color: var(--text-primary); }
-.modal-btn.confirm-add { background: var(--brand); color: white; }
-.modal-btn.confirm-add:disabled { background: var(--brand); }
-.modal-btn:disabled { opacity: 0.6; cursor: default; }
+.bulk-queue-panel:not(.compact) .bulk-queue-list { max-height: 60vh; }
+.bulk-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+.bulk-queue-row:last-child { border-bottom: none; }
+.queue-number {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 32px;
+}
+.queue-link {
+  font-size: 13px;
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-link:hover { text-decoration: underline; color: var(--brand-nav-link); }
+.bulk-queue-list .empty { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 13px; }
 
 /* ==========================================================================
    Add product page
