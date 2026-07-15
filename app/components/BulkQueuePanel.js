@@ -31,8 +31,14 @@ export default function BulkQueuePanel({ compact = false }) {
       .from("submissions")
       .select("id, link, queue_number, status")
       .eq("status", "pending")
-      .order("queue_number", { ascending: false });
-    if (!loadError) setQueueItems(data || []);
+      .order("queue_number", { ascending: true });
+    if (!loadError) {
+      // Number by current position among pending items (oldest = 1), not the
+      // permanent DB identity value — so once earlier links are processed and
+      // drop out of "pending", the remaining ones renumber starting at 1 again.
+      const numbered = (data || []).map((item, idx) => ({ ...item, displayNumber: idx + 1 }));
+      setQueueItems(numbered.reverse()); // newest pasted on top
+    }
     setLoading(false);
   }
 
@@ -69,6 +75,17 @@ export default function BulkQueuePanel({ compact = false }) {
     ingest(text);
   }
 
+  function handleDrop(e) {
+    e.preventDefault();
+    const text = e.dataTransfer.getData("text");
+    setInputValue("");
+    ingest(text);
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+
   function handleKeyDown(e) {
     if (e.key === "Enter" && inputValue.trim()) {
       e.preventDefault();
@@ -85,10 +102,12 @@ export default function BulkQueuePanel({ compact = false }) {
       <input
         type="text"
         className="bulk-paste-input"
-        placeholder="Paste a product link here…"
+        placeholder="Paste or drag a product link here…"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
         onKeyDown={handleKeyDown}
         disabled={ingesting}
       />
@@ -107,7 +126,7 @@ export default function BulkQueuePanel({ compact = false }) {
         ) : (
           queueItems.map((item) => (
             <div key={item.id} className="bulk-queue-row">
-              <span className="queue-number">#{item.queue_number}</span>
+              <span className="queue-number">#{item.displayNumber}</span>
               <a className="queue-link" href={item.link} target="_blank" rel="noopener noreferrer">
                 {item.link}
               </a>
