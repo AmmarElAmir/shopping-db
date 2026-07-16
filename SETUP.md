@@ -52,6 +52,25 @@ If you'd rather not hand me a key at all, the fallback is: I draft the finished 
 
 Once that's done, anyone who has the site link can submit through `/submit` and it'll show up in the catalog on its own, no chat step required.
 
+### Manual "Process now" button
+
+A scheduled routine periodically checks the `submissions` table for pending
+rows and processes them. The **Bulk queue** page (and the Batch paste modal)
+has a "Process now" button that fires that same routine on demand instead of
+waiting for its schedule.
+
+The button calls a server-side route (`app/api/process-queue/route.js`),
+which holds the routine's trigger URL and token in environment variables so
+they never reach the browser:
+
+- `ROUTINE_TRIGGER_URL` — the routine's fire endpoint.
+- `ROUTINE_TRIGGER_TOKEN` — bearer token for that endpoint.
+
+Both are set in `.env.local` for local dev. **For the deployed site, add the
+same two variables in Vercel → Project Settings → Environment Variables** —
+do not prefix them with `NEXT_PUBLIC_`, or the token would be exposed in the
+browser.
+
 ## 6. Self-hosting alternative (if you change your mind on Vercel/Supabase)
 
 Same code runs fine with `npm run build && npm start` on any machine (a Pi, an old laptop, a $4/mo VPS) as long as it can reach the internet and you point it at a Postgres database — Supabase's Postgres is swappable for any Postgres instance, including one you run yourself with Docker. Say the word if you want that version instead — the main trade-off is you handle uptime, HTTPS certs, and security patching yourself.

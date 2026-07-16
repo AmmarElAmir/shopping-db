@@ -518,6 +518,7 @@ form button {
 }
 .modal-btn.cancel { background: var(--bg); color: var(--text-primary); }
 .modal-btn.confirm-delete { background: var(--danger); color: white; }
+.modal-btn.secondary { background: var(--brand-nav-link); color: white; }
 
 /* ==========================================================================
    Bulk paste / bulk queue
@@ -586,6 +587,8 @@ form button {
 }
 .queue-link:hover { text-decoration: underline; color: var(--brand-nav-link); }
 .bulk-queue-list .empty { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+.bulk-queue-process { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.bulk-queue-process .bulk-paste-hint { margin: 0; }
 
 /* ==========================================================================
    Add product page

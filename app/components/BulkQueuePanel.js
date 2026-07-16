@@ -25,6 +25,8 @@ export default function BulkQueuePanel({ compact = false }) {
   const [ingesting, setIngesting] = useState(false);
   const [error, setError] = useState(null);
   const [lastAdded, setLastAdded] = useState(0);
+  const [processing, setProcessing] = useState(false);
+  const [processMessage, setProcessMessage] = useState(null);
 
   async function loadQueue() {
     const { data, error: loadError } = await supabase
@@ -86,6 +88,27 @@ export default function BulkQueuePanel({ compact = false }) {
     e.preventDefault();
   }
 
+  // Normally the periodic routine checks for pending submissions on its own
+  // schedule. This lets you fire that same check on demand instead of
+  // waiting for it.
+  async function handleProcessNow() {
+    setProcessing(true);
+    setProcessMessage(null);
+    try {
+      const res = await fetch("/api/process-queue", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setProcessMessage({ type: "error", text: data.error || "Couldn't trigger processing." });
+      } else {
+        setProcessMessage({ type: "success", text: "Processing triggered." });
+      }
+    } catch (err) {
+      setProcessMessage({ type: "error", text: err.message || "Couldn't trigger processing." });
+    }
+    setProcessing(false);
+    await loadQueue();
+  }
+
   function handleKeyDown(e) {
     if (e.key === "Enter" && inputValue.trim()) {
       e.preventDefault();
@@ -132,6 +155,22 @@ export default function BulkQueuePanel({ compact = false }) {
               </a>
             </div>
           ))
+        )}
+      </div>
+
+      <div className="bulk-queue-process">
+        <button
+          type="button"
+          className="modal-btn secondary"
+          onClick={handleProcessNow}
+          disabled={processing || queueItems.length === 0}
+        >
+          {processing ? "Processing…" : "Process now"}
+        </button>
+        {processMessage && (
+          <p className={processMessage.type === "error" ? "modal-error" : "bulk-paste-hint"}>
+            {processMessage.text}
+          </p>
         )}
       </div>
     </div>
