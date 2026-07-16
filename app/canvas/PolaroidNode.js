@@ -1,12 +1,17 @@
 "use client";
 
-import { memo, useRef, useState } from "react";
+import { memo, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
 
-function PolaroidNode({ data }) {
-  const [flipped, setFlipped] = useState(false);
+function PolaroidNode({ id, data }) {
   const moved = useRef(false);
   const start = useRef({ x: 0, y: 0 });
+
+  // Flip state is lifted to the canvas page (data.flipped / data.onToggleFlip)
+  // so it can also toggle the node's `draggable` flag: a flipped card must
+  // not be draggable on mobile, so a swipe scrolls its details instead of
+  // React Flow interpreting the swipe as a node drag.
+  const { flipped, onToggleFlip } = data;
 
   // A tap (mouse or touch) always jitters a few sub-pixels before the click
   // fires, and touch is far noisier than mouse. Only treat the pointer as
@@ -28,7 +33,7 @@ function PolaroidNode({ data }) {
   function handleClick(e) {
     if (moved.current) return;
     e.stopPropagation();
-    setFlipped((f) => !f);
+    onToggleFlip?.(id);
   }
 
   const {
@@ -48,7 +53,7 @@ function PolaroidNode({ data }) {
 
   return (
     <div
-      className="polaroid-wrap"
+      className={`polaroid-wrap${flipped ? " is-flipped" : ""}`}
       style={{ "--rot": `${rotation || 0}deg` }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

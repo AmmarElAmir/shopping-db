@@ -21,6 +21,14 @@
   touch-action: none; /* let React Flow's own pan/drag handling own gestures */
 }
 
+/* Flipped cards are set non-draggable (see canvas/page.js), so there's no
+   node-drag gesture competing for the touch anymore. Allow native vertical
+   panning so a swipe scrolls the back-face details instead of doing nothing
+   (or fighting React Flow) the way touch-action: none would force. */
+.polaroid-wrap.is-flipped {
+  touch-action: pan-y;
+}
+
 .polaroid {
   position: relative;
   width: 100%;
