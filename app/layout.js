@@ -1,7 +1,4 @@
 import "./globals.css";
-import NavLinks from "../lib/NavLinks";
-import { Agentation } from "agentation";
-import SplashScreen from "./components/SplashScreen";
 
 export const metadata = {
   title: "Dubai Shopping Database",
@@ -12,15 +9,16 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <SplashScreen />
-        <div className="topbar-wrap">
-          <header className="topbar">
-            <a href="/" className="brand">Dubai Shopping DB</a>
-            <NavLinks />
-          </header>
-        </div>
+        <header className="topbar">
+          <a href="/" className="brand">Dubai Shopping DB</a>
+          <nav>
+            <a href="/">Products</a>
+            <a href="/add">Add product</a>
+            <a href="/comparisons">Comparisons</a>
+            <a href="/canvas">Canvas</a>
+          </nav>
+        </header>
         <main>{children}</main>
-        {process.env.NODE_ENV === "development" && <Agentation />}
       </body>
     </html>
   );
