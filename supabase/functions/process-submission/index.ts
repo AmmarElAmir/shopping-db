@@ -50,6 +50,38 @@ interface ExtractedProduct {
   cover_image_url: string | null;
 }
 
+// Pulls the retailer's own product photo straight from the submitted link,
+// via the og:image/twitter:image meta tag every storefront sets on its
+// product pages. This is the actual product shot the retailer chose —
+// far more reliable than asking a model to guess the right image out of a
+// jumbled page (which can include lifestyle photos, designer portraits, etc).
+async function fetchSourceImage(link: string): Promise<string | null> {
+  try {
+    const res = await fetch(link, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const metaImage =
+      html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i)?.[1] ||
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i)?.[1];
+    if (!metaImage) return null;
+
+    return new URL(metaImage, link).href;
+  } catch (err) {
+    console.error("fetchSourceImage failed", err);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -82,12 +114,15 @@ Deno.serve(async (req) => {
       .order("name");
     if (categoriesError) throw categoriesError;
 
-    const extracted = await extractProductDetails({
-      link: submission.link,
-      text: stripBoilerplate(submission.text),
-      imageUrls,
-      existingCategories: (categories || []).map((c) => c.name),
-    });
+    const [extracted, sourceImageUrl] = await Promise.all([
+      extractProductDetails({
+        link: submission.link,
+        text: stripBoilerplate(submission.text),
+        imageUrls,
+        existingCategories: (categories || []).map((c) => c.name),
+      }),
+      submission.link ? fetchSourceImage(submission.link) : Promise.resolve(null),
+    ]);
 
     if (!extracted.name) {
       throw new Error("Claude could not extract a product name from this submission");
@@ -95,10 +130,15 @@ Deno.serve(async (req) => {
 
     const categoryId = await resolveCategoryId(supabase, extracted.category);
 
+    // Always prefer the retailer's own product photo when we have a link —
+    // it's the authoritative shot. Fall back to whatever photo the submitter
+    // attached (Claude's pick, or the first one) only when there's no link
+    // or the fetch failed (bot-blocked page, network error, etc).
     const coverImageUrl =
-      extracted.cover_image_url && imageUrls.includes(extracted.cover_image_url)
+      sourceImageUrl ||
+      (extracted.cover_image_url && imageUrls.includes(extracted.cover_image_url)
         ? extracted.cover_image_url
-        : imageUrls[0] || null;
+        : imageUrls[0] || null);
 
     const { data: product, error: insertError } = await supabase
       .from("products")
@@ -150,6 +190,7 @@ async function resolveCategoryId(
 ): Promise<string | null> {
   if (!categoryName) return null;
 
+  // 1. Exact (case-insensitive) match.
   const { data: existing } = await supabase
     .from("categories")
     .select("id, name")
@@ -157,6 +198,19 @@ async function resolveCategoryId(
     .maybeSingle();
   if (existing) return existing.id;
 
+  // 2. Close match via trigram similarity, so a slightly different name
+  // Claude comes back with (e.g. "Baby Strollers" vs. an existing
+  // "Strollers") reuses that row instead of forking a near-duplicate
+  // category. See migration 20260716000000_fuzzy_category_match.sql.
+  const { data: close, error: closeError } = await supabase.rpc("find_close_category", {
+    candidate: categoryName,
+    min_similarity: 0.3,
+  });
+  if (closeError) console.error("find_close_category failed", closeError);
+  if (close && close.length > 0) return close[0].id;
+
+  // 3. No close match anywhere in the table — create a new category using
+  // the name Claude derived from this product's own name + description.
   const { data: created, error } = await supabase
     .from("categories")
     .insert({ name: categoryName })
@@ -198,8 +252,8 @@ async function extractProductDetails(input: {
       : null,
     "Ignore generic app share-sheet boilerplate (e.g. 'What do you think of this? Found it on [App]!') — that is noise, not product content.",
     input.existingCategories.length > 0
-      ? `Existing categories in the database (reuse one of these if it fits, instead of inventing a near-duplicate): ${input.existingCategories.join(", ")}`
-      : "No existing categories yet — pick a sensible, reusable category name.",
+      ? `Existing categories in the database: ${input.existingCategories.join(", ")}. Reuse one of these if it's a close match for this product. Only if none of them fit, invent a new concise, reusable category name based on this product's own name and description (not a near-duplicate of an existing one).`
+      : "No existing categories yet — invent a concise, reusable category name based on this product's own name and description.",
     "Respond with ONLY a JSON object, no other text, matching this shape:",
     `{"name": string, "price": number|null, "store": string|null, "category": string, "description": string, "cover_image_url": string|null}`,
     "For cover_image_url, pick the URL (exactly as given above) of whichever attached photo best represents the product as a listing cover image. Use null if no images were attached.",
