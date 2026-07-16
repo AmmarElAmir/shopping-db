@@ -6,14 +6,24 @@ import { Handle, Position } from "@xyflow/react";
 function PolaroidNode({ data }) {
   const [flipped, setFlipped] = useState(false);
   const moved = useRef(false);
+  const start = useRef({ x: 0, y: 0 });
 
-  // React Flow's onNodeClick already suppresses clicks that followed a real
-  // drag, but we keep a tiny local guard too in case of touch quirks.
-  function handlePointerDown() {
+  // A tap (mouse or touch) always jitters a few sub-pixels before the click
+  // fires, and touch is far noisier than mouse. Only treat the pointer as
+  // "moved" once it clears a real drag threshold, otherwise every tap on
+  // mobile gets misread as a drag and the flip never triggers.
+  const DRAG_THRESHOLD = 6;
+
+  function handlePointerDown(e) {
     moved.current = false;
+    start.current = { x: e.clientX, y: e.clientY };
   }
-  function handlePointerMove() {
-    moved.current = true;
+  function handlePointerMove(e) {
+    const dx = e.clientX - start.current.x;
+    const dy = e.clientY - start.current.y;
+    if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      moved.current = true;
+    }
   }
   function handleClick(e) {
     if (moved.current) return;
