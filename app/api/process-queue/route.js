@@ -22,8 +22,8 @@ export async function POST() {
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "content-type": "application/json",
+        "x-api-key": token,
         "anthropic-version": "2023-06-01",
       },
     });

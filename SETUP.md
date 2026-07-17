@@ -64,7 +64,7 @@ which holds the routine's trigger URL and token in environment variables so
 they never reach the browser:
 
 - `ROUTINE_TRIGGER_URL` — the routine's fire endpoint.
-- `ROUTINE_TRIGGER_TOKEN` — bearer token for that endpoint.
+- `ROUTINE_TRIGGER_TOKEN` — the API key sent as the `x-api-key` header for that endpoint.
 
 Both are set in `.env.local` for local dev. **For the deployed site, add the
 same two variables in Vercel → Project Settings → Environment Variables** —
