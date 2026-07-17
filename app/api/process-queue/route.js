@@ -24,6 +24,7 @@ export async function POST() {
       headers: {
         Authorization: `Bearer ${token}`,
         "content-type": "application/json",
+        "anthropic-version": "2023-06-01",
       },
     });
 
