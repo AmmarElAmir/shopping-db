@@ -50,6 +50,40 @@ interface ExtractedProduct {
   cover_image_url: string | null;
 }
 
+// Best-effort fallback for submissions that arrived as a bare link with no
+// uploaded photos (e.g. the Bulk Paste queue, which never writes to
+// `submission_images` — see BulkQueuePanel.js). Tries to pull an og:image /
+// twitter:image meta tag from the linked page via a plain fetch.
+//
+// NOTE: this only works for stores that don't gate behind Cloudflare/bot
+// challenges (e.g. Amazon, Muji, H&M). Cloudflare-protected retailers
+// (IKEA, HomeBox, Pan Home Stores, Home Centre, Noon) return a JS challenge
+// page to a plain fetch and will NOT get an image this way — those still
+// need Nimble-based scraping, which this edge function can't reach. For
+// those stores, either attach a photo via /submit, or Claude backfills
+// image_url manually in a chat session the way it already does today.
+async function fetchOgImage(link: string | null): Promise<string | null> {
+  if (!link) return null;
+  try {
+    const res = await fetch(link, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+    return match ? match[1] : null;
+  } catch {
+    return null; // Blocked, timed out, or no match — caller falls back to null.
+  }
+}
+
 Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -70,7 +104,14 @@ Deno.serve(async (req) => {
       .eq("submission_id", submission.id);
     if (imagesError) throw imagesError;
 
-    const imageUrls = (images || []).map((i) => i.image_url);
+    let imageUrls = (images || []).map((i) => i.image_url);
+
+    // No uploaded photos (typical for Bulk Paste) — try a best-effort
+    // og:image scrape of the link before asking Claude to pick a cover.
+    if (imageUrls.length === 0 && submission.link) {
+      const ogImage = await fetchOgImage(submission.link);
+      if (ogImage) imageUrls = [ogImage];
+    }
 
     if (!submission.link && !submission.text && imageUrls.length === 0) {
       throw new Error("Submission has no link, text, or images to work with");
