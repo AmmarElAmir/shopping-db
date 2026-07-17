@@ -161,6 +161,20 @@
   gap: 6px;
 }
 
+.polaroid-back-actions {
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+/* .tag-icon.delete has margin-left: auto for the grid page's top-bar layout;
+   here the three actions are one centered set, so undo that. */
+.polaroid-back-actions .tag-icon.delete {
+  margin-left: 0;
+}
+
 /* Reuse badge look from globals.css but keep local fallback in case of load order */
 .polaroid-back-badges .badge {
   font-size: 11px;

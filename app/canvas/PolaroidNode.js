@@ -2,6 +2,7 @@
 
 import { memo, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
+import { IconCartCheck, IconHeart, IconTrash } from "../../lib/icons";
 
 function PolaroidNode({ id, data }) {
   const moved = useRef(false);
@@ -11,7 +12,7 @@ function PolaroidNode({ id, data }) {
   // so it can also toggle the node's `draggable` flag: a flipped card must
   // not be draggable on mobile, so a swipe scrolls its details instead of
   // React Flow interpreting the swipe as a node drag.
-  const { flipped, onToggleFlip } = data;
+  const { flipped, onToggleFlip, onToggleFavorite, onTogglePurchased, onDeleteRequest } = data;
 
   // A tap (mouse or touch) always jitters a few sub-pixels before the click
   // fires, and touch is far noisier than mouse. Only treat the pointer as
@@ -108,6 +109,41 @@ function PolaroidNode({ id, data }) {
               {is_favorite && <span className="badge fav">Favorite</span>}
               {is_purchased && <span className="badge purchased">Purchased</span>}
             </div>
+          </div>
+          <div className="polaroid-back-actions">
+            <button
+              type="button"
+              className={`tag-icon fav${is_favorite ? " on" : " off"}`}
+              title="Favorite"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite?.(id);
+              }}
+            >
+              <IconHeart on={is_favorite} />
+            </button>
+            <button
+              type="button"
+              className={`tag-icon bought${is_purchased ? " on" : " off"}`}
+              title="Purchased"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePurchased?.(id);
+              }}
+            >
+              <IconCartCheck on={is_purchased} />
+            </button>
+            <button
+              type="button"
+              className="tag-icon delete"
+              title="Delete product"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteRequest?.(id, name);
+              }}
+            >
+              <IconTrash />
+            </button>
           </div>
         </div>
       </div>

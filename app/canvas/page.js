@@ -13,6 +13,37 @@ import "@xyflow/react/dist/style.css";
 import "./canvas.css";
 import { supabase } from "../../lib/supabase";
 import PolaroidNode from "./PolaroidNode";
+import SwipeToConfirmDelete from "../components/SwipeToConfirmDelete";
+
+function DeleteConfirmModal({ product, onCancel, onConfirm, deleting, error }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">Delete product?</h2>
+        <p className="modal-body">
+          This will permanently delete <strong>{product.name}</strong>. This can't be undone.
+        </p>
+        {error && <p className="modal-error">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="modal-btn cancel" onClick={onCancel} disabled={deleting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="modal-btn confirm-delete desktop-only"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+        <div className="mobile-only">
+          <SwipeToConfirmDelete onConfirm={onConfirm} disabled={deleting} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const nodeTypes = { polaroid: PolaroidNode };
 
@@ -76,6 +107,9 @@ function CanvasInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [loading, setLoading] = useState(true);
   const [flippedIds, setFlippedIds] = useState(() => new Set());
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const { fitView } = useReactFlow();
   const saveTimers = useRef({});
 
@@ -87,6 +121,59 @@ function CanvasInner() {
       return next;
     });
   }, []);
+
+  const toggleField = useCallback(
+    (id, field) => {
+      let previousValue;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== id) return n;
+          previousValue = n.data[field];
+          return { ...n, data: { ...n.data, [field]: !previousValue } };
+        })
+      );
+      supabase
+        .from("products")
+        .update({ [field]: !previousValue })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            setNodes((nds) =>
+              nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, [field]: previousValue } } : n))
+            );
+          }
+        });
+    },
+    [setNodes]
+  );
+
+  const toggleFavorite = useCallback((id) => toggleField(id, "is_favorite"), [toggleField]);
+  const togglePurchased = useCallback((id) => toggleField(id, "is_purchased"), [toggleField]);
+
+  const requestDelete = useCallback((id, name) => {
+    setDeleteError(null);
+    setDeleteTarget({ id, name });
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await supabase.from("products").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      setDeleteError(error.message || "Something went wrong. The item wasn't deleted — try again.");
+      return false;
+    }
+    setNodes((nds) => nds.filter((n) => n.id !== deleteTarget.id));
+    setFlippedIds((prev) => {
+      if (!prev.has(deleteTarget.id)) return prev;
+      const next = new Set(prev);
+      next.delete(deleteTarget.id);
+      return next;
+    });
+    setDeleteTarget(null);
+    return true;
+  }, [deleteTarget, setNodes]);
 
   useEffect(() => {
     async function load() {
@@ -139,6 +226,9 @@ function CanvasInner() {
             rotation: rotationFor(p.id),
             flipped: flippedIds.has(p.id),
             onToggleFlip: toggleFlip,
+            onToggleFavorite: toggleFavorite,
+            onTogglePurchased: togglePurchased,
+            onDeleteRequest: requestDelete,
           },
         };
       });
@@ -220,6 +310,19 @@ function CanvasInner() {
         <Background gap={32} />
         <Controls />
       </ReactFlow>
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          product={deleteTarget}
+          deleting={deleting}
+          error={deleteError}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </div>
   );
 }
