@@ -38,6 +38,7 @@ interface SubmissionRecord {
   id: string;
   link: string | null;
   text: string | null;
+  name: string | null;
   submitted_by: string | null;
 }
 
@@ -113,8 +114,8 @@ Deno.serve(async (req) => {
       if (ogImage) imageUrls = [ogImage];
     }
 
-    if (!submission.link && !submission.text && imageUrls.length === 0) {
-      throw new Error("Submission has no link, text, or images to work with");
+    if (!submission.link && !submission.text && !submission.name && imageUrls.length === 0) {
+      throw new Error("Submission has no link, text, name, or images to work with");
     }
 
     const { data: categories, error: categoriesError } = await supabase
@@ -126,11 +127,13 @@ Deno.serve(async (req) => {
     const extracted = await extractProductDetails({
       link: submission.link,
       text: stripBoilerplate(submission.text),
+      name: submission.name,
       imageUrls,
       existingCategories: (categories || []).map((c) => c.name),
     });
 
-    if (!extracted.name) {
+    const finalName = submission.name || extracted.name;
+    if (!finalName) {
       throw new Error("Claude could not extract a product name from this submission");
     }
 
@@ -144,7 +147,7 @@ Deno.serve(async (req) => {
     const { data: product, error: insertError } = await supabase
       .from("products")
       .insert({
-        name: extracted.name,
+        name: finalName,
         price: extracted.price,
         store: extracted.store,
         product_link: submission.link,
@@ -219,6 +222,7 @@ async function resolveCategoryId(
 async function extractProductDetails(input: {
   link: string | null;
   text: string;
+  name: string | null;
   imageUrls: string[];
   existingCategories: string[];
 }): Promise<ExtractedProduct> {
@@ -230,6 +234,7 @@ async function extractProductDetails(input: {
 
   const promptParts = [
     "Extract structured product data from this submission for a personal shopping/price-tracking database.",
+    input.name ? `Name (given directly by the user — use this exact value as "name" in your response, do not rephrase it): ${input.name}` : null,
     input.link ? `Link: ${input.link}` : null,
     input.text ? `Description text: ${input.text}` : null,
     input.imageUrls.length > 0
