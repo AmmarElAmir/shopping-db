@@ -526,6 +526,49 @@ form button {
 .modal.modal-wide { max-width: 560px; }
 .modal-btn:disabled { opacity: 0.6; cursor: default; }
 
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 4px;
+  margin: 0 0 20px;
+}
+.modal-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.modal-tab.active { background: var(--surface); color: var(--brand-active-nav); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+
+/* ==========================================================================
+   Floating "Add" button
+   ========================================================================== */
+.fab-add {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--category-text);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(62, 96, 255, 0.4);
+  cursor: pointer;
+  z-index: 60;
+}
+.fab-add svg { width: 16px; height: 16px; display: block; }
+
 .modal-actions-split {
   justify-content: space-between;
 }

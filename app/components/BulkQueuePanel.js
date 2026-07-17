@@ -31,7 +31,7 @@ export default function BulkQueuePanel({ compact = false }) {
   async function loadQueue() {
     const { data, error: loadError } = await supabase
       .from("submissions")
-      .select("id, link, queue_number, status")
+      .select("id, link, name, queue_number, status")
       .eq("status", "pending")
       .order("queue_number", { ascending: true });
     if (!loadError) {
@@ -150,9 +150,13 @@ export default function BulkQueuePanel({ compact = false }) {
           queueItems.map((item) => (
             <div key={item.id} className="bulk-queue-row">
               <span className="queue-number">#{item.displayNumber}</span>
-              <a className="queue-link" href={item.link} target="_blank" rel="noopener noreferrer">
-                {item.link}
-              </a>
+              {item.link ? (
+                <a className="queue-link" href={item.link} target="_blank" rel="noopener noreferrer">
+                  {item.name || item.link}
+                </a>
+              ) : (
+                <span className="queue-link">{item.name || "(untitled)"}</span>
+              )}
             </div>
           ))
         )}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { IconCartCheck, IconHeart, IconSparkle, IconLink, IconTrash } from "../lib/icons";
 import SwipeToConfirmDelete from "./components/SwipeToConfirmDelete";
+import FloatingAddButton from "./components/FloatingAddButton";
 
 function Toggle({ on, onClick, label }) {
   return (
@@ -267,6 +268,8 @@ export default function ProductsPage() {
           onConfirm={handleConfirmDelete}
         />
       )}
+
+      <FloatingAddButton />
     </div>
   );
 }

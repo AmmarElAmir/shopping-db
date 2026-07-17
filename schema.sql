@@ -48,6 +48,7 @@ create table if not exists submissions (
   id uuid primary key default gen_random_uuid(),
   link text,
   text text,
+  name text,                -- set when submitted via the Single Product tab
   submitted_by text,
   status text not null default 'pending' check (status in ('pending', 'processed', 'failed')),
   error text,
