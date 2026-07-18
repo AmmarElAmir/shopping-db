@@ -53,16 +53,52 @@ interface ExtractedProduct {
 
 // Best-effort fallback for submissions that arrived as a bare link with no
 // uploaded photos (e.g. the Bulk Paste queue, which never writes to
-// `submission_images` — see BulkQueuePanel.js). Tries to pull an og:image /
-// twitter:image meta tag from the linked page via a plain fetch.
+// `submission_images` — see BulkQueuePanel.js). Tries to pull a product
+// image URL from the linked page via a plain fetch, checking (in order)
+// og:image, twitter:image, <link rel="image_src">, itemprop="image", and a
+// JSON-LD "image" field — some stores only populate one of these.
 //
 // NOTE: this only works for stores that don't gate behind Cloudflare/bot
 // challenges (e.g. Amazon, Muji, H&M). Cloudflare-protected retailers
 // (IKEA, HomeBox, Pan Home Stores, Home Centre, Noon) return a JS challenge
-// page to a plain fetch and will NOT get an image this way — those still
-// need Nimble-based scraping, which this edge function can't reach. For
-// those stores, either attach a photo via /submit, or Claude backfills
-// image_url manually in a chat session the way it already does today.
+// page to a plain fetch and will NOT get an image this way, no matter which
+// meta tag we look for — those need Nimble-based scraping, which this edge
+// function can't reach (no Nimble credentials are provisioned for it). For
+// those stores we flag the product via `needsImageReview` instead of
+// silently leaving image_url null (see callers below) so it can be found
+// and backfilled — either by attaching a photo via /submit, or by a
+// Nimble-enabled Claude session periodically sweeping for the flag.
+const BLOCKED_IMAGE_DOMAINS = [
+  "ikea.com",
+  "homeboxstores.com",
+  "panhomestores.com",
+  "homecentre.com",
+  "noon.com",
+];
+
+function isKnownBlockedImageDomain(link: string | null): boolean {
+  if (!link) return false;
+  try {
+    const host = new URL(link).hostname.replace(/^www\./, "");
+    return BLOCKED_IMAGE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+  } catch {
+    return false;
+  }
+}
+
+function extractImageFromHtml(html: string): string | null {
+  const metaMatch =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i);
+  if (metaMatch) return metaMatch[1];
+
+  const jsonLdMatch = html.match(/"image"\s*:\s*"([^"]+)"/i);
+  return jsonLdMatch ? jsonLdMatch[1] : null;
+}
+
 async function fetchOgImage(link: string | null): Promise<string | null> {
   if (!link) return null;
   try {
@@ -70,16 +106,15 @@ async function fetchOgImage(link: string | null): Promise<string | null> {
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.9",
       },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
     const html = await res.text();
-    const match =
-      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
-      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-    return match ? match[1] : null;
+    return extractImageFromHtml(html);
   } catch {
     return null; // Blocked, timed out, or no match — caller falls back to null.
   }
@@ -144,6 +179,14 @@ Deno.serve(async (req) => {
         ? extracted.cover_image_url
         : imageUrls[0] || null;
 
+    // No cover image and the store is a known Cloudflare/bot-gated domain —
+    // flag it so it's discoverable (query products WHERE claude_notes ILIKE
+    // '%NEEDS IMAGE%') instead of silently sitting with image_url = null.
+    const needsImageReview = !coverImageUrl && isKnownBlockedImageDomain(submission.link);
+    const claudeNotes = needsImageReview
+      ? `[NEEDS IMAGE: ${extracted.store || "store"} blocks automated image fetch — attach a photo via /submit or backfill manually] ${extracted.description}`
+      : extracted.description;
+
     const { data: product, error: insertError } = await supabase
       .from("products")
       .insert({
@@ -156,7 +199,7 @@ Deno.serve(async (req) => {
         image_url: coverImageUrl,
         source: "online",
         raw_brief: submission.text,
-        claude_notes: extracted.description,
+        claude_notes: claudeNotes,
       })
       .select()
       .single();

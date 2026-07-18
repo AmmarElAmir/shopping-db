@@ -43,6 +43,12 @@ If you'd rather not hand me a key at all, the fallback is: I draft the finished 
 
 **How it works:** the form uploads photos straight to a `submission-images` storage bucket and writes a row to a `submissions` staging table. A Supabase Edge Function fires on that insert, calls Claude (Haiku model, kept cheap since it's a short extraction task) with the link/text/photos, gets back a structured product (name, price, store, category, description, and a pick of the best cover photo), and inserts it into `products` — reusing an existing category if one fits instead of creating a duplicate. Any extra photos become a gallery in the new `product_images` table. If extraction fails, the submission is marked `failed` with the error saved, instead of silently disappearing.
 
+**Cover images for link-only submissions:** if no photo was uploaded (the normal case for Bulk Paste), the function tries to scrape an og:image/twitter:image/JSON-LD image from the link. This fails for stores behind a Cloudflare bot challenge (IKEA, HomeBox, Pan Home, Home Centre, Noon) — a plain server-side fetch can't get past those. Rather than leaving the product silently imageless, those rows get `claude_notes` prefixed with `[NEEDS IMAGE: ...]`. Find and backfill them with:
+```sql
+select id, name, store, product_link from products where claude_notes ilike '[NEEDS IMAGE%';
+```
+A Nimble-enabled Claude session (or the periodic submissions-processing routine, if you add an image-backfill step to its prompt) can fetch the real product image for these and update `image_url` directly.
+
 **One-time setup, in addition to steps 1–2 above:**
 
 1. Run `supabase/migrations/20260713000000_async_submissions.sql` in the Supabase SQL editor (after `schema.sql`). This adds `submissions`, `submission_images`, `product_images`, and the `submission-images` storage bucket.
