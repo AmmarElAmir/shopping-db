@@ -23,10 +23,10 @@ function Toggle({ on, onClick, label }) {
   );
 }
 
-function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
+function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest, selectMode, selected, onToggleSelect }) {
   const link = p.product_link || p.product_url;
-  const CardTag = link ? "a" : "div";
-  const cardProps = link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
+  const CardTag = !selectMode && link ? "a" : "div";
+  const cardProps = !selectMode && link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
   const isAiGenerated = Boolean(p.claude_notes);
 
   function handleToggle(e, field) {
@@ -41,13 +41,35 @@ function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
     onDeleteRequest(p);
   }
 
+  function handleCardClick(e) {
+    if (!selectMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleSelect(p);
+  }
+
   return (
-    <CardTag className={`card${link ? " card-link" : ""}`} {...cardProps}>
+    <CardTag
+      className={`card${link ? " card-link" : ""}${selectMode ? " card-selectable" : ""}${selected ? " card-selected" : ""}`}
+      onClick={handleCardClick}
+      {...cardProps}
+    >
       <div className="card-image-wrap">
         {p.image_url ? (
           <img src={p.image_url} alt={p.name} />
         ) : (
           <div style={{ width: "100%", height: "100%", background: "#eee" }} />
+        )}
+        {selectMode && (
+          <div className="card-select-overlay">
+            <span className={`select-checkbox${selected ? " checked" : ""}`}>
+              {selected && (
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+          </div>
         )}
         <div className="card-tags-top">
           <button
@@ -55,6 +77,7 @@ function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
             className={`tag-icon bought${p.is_purchased ? " on" : " off"}`}
             title="Purchased"
             onClick={(e) => handleToggle(e, "is_purchased")}
+            disabled={selectMode}
           >
             <IconCartCheck on={p.is_purchased} />
           </button>
@@ -63,17 +86,20 @@ function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest }) {
             className={`tag-icon fav${p.is_favorite ? " on" : " off"}`}
             title="Favorite"
             onClick={(e) => handleToggle(e, "is_favorite")}
+            disabled={selectMode}
           >
             <IconHeart on={p.is_favorite} />
           </button>
-          <button
-            type="button"
-            className="tag-icon delete"
-            title="Delete product"
-            onClick={handleDeleteClick}
-          >
-            <IconTrash />
-          </button>
+          {!selectMode && (
+            <button
+              type="button"
+              className="tag-icon delete"
+              title="Delete product"
+              onClick={handleDeleteClick}
+            >
+              <IconTrash />
+            </button>
+          )}
         </div>
         <div className="card-tags-bottom">
           <span className="category-badge">{categoryName || "Uncategorized"}</span>
@@ -134,6 +160,33 @@ function DeleteConfirmModal({ product, onCancel, onConfirm, deleting, error }) {
   );
 }
 
+function BulkDeleteConfirmModal({ count, onCancel, onConfirm, deleting, error }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="modal-title">Delete {count} product{count === 1 ? "" : "s"}?</h2>
+        <p className="modal-body">
+          This will permanently delete {count} selected product{count === 1 ? "" : "s"}. This can't be undone.
+        </p>
+        {error && <p className="modal-error">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="modal-btn cancel" onClick={onCancel} disabled={deleting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="modal-btn confirm-delete"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -145,6 +198,11 @@ export default function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -192,6 +250,42 @@ export default function ProductsPage() {
     return true;
   }
 
+  function handleToggleSelect(product) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(product.id)) next.delete(product.id);
+      else next.add(product.id);
+      return next;
+    });
+  }
+
+  function handleEnterSelectMode() {
+    setSelectMode(true);
+    setSelectedIds(new Set());
+  }
+
+  function handleCancelSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBulkDeleteError(null);
+  }
+
+  async function handleConfirmBulkDelete() {
+    setBulkDeleting(true);
+    setBulkDeleteError(null);
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase.from("products").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) {
+      setBulkDeleteError(error.message || "Something went wrong. The items weren't deleted — try again.");
+      return;
+    }
+    setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+    setBulkDeleteOpen(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
@@ -216,6 +310,30 @@ export default function ProductsPage() {
         <div className="filters-toggles">
           <Toggle on={favOnly} onClick={() => setFavOnly((v) => !v)} label="Favorites Only" />
           <Toggle on={hidePurchased} onClick={() => setHidePurchased((v) => !v)} label="Hide Purchased" />
+        </div>
+        <div className="select-mode-actions">
+          {!selectMode ? (
+            <button type="button" className="edit-btn" onClick={handleEnterSelectMode}>
+              Edit
+            </button>
+          ) : (
+            <>
+              <button type="button" className="cancel-select-btn" onClick={handleCancelSelectMode}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="delete-selected-btn"
+                disabled={selectedIds.size === 0}
+                onClick={() => {
+                  setBulkDeleteError(null);
+                  setBulkDeleteOpen(true);
+                }}
+              >
+                Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -251,6 +369,9 @@ export default function ProductsPage() {
                 setDeleteError(null);
                 setDeleteTarget(product);
               }}
+              selectMode={selectMode}
+              selected={selectedIds.has(p.id)}
+              onToggleSelect={handleToggleSelect}
             />
           ))}
         </div>
@@ -269,7 +390,20 @@ export default function ProductsPage() {
         />
       )}
 
-      <FloatingAddButton />
+      {bulkDeleteOpen && (
+        <BulkDeleteConfirmModal
+          count={selectedIds.size}
+          deleting={bulkDeleting}
+          error={bulkDeleteError}
+          onCancel={() => {
+            setBulkDeleteOpen(false);
+            setBulkDeleteError(null);
+          }}
+          onConfirm={handleConfirmBulkDelete}
+        />
+      )}
+
+      {!selectMode && <FloatingAddButton />}
     </div>
   );
 }

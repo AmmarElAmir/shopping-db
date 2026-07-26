@@ -207,6 +207,41 @@ main { max-width: 1575px; margin: 0 auto; padding: 20px 112px 24px; }
 .search-input::placeholder { color: var(--text-placeholder); }
 .filters-toggles { display: flex; align-items: center; gap: 0 10px; }
 
+.select-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.edit-btn,
+.cancel-select-btn,
+.delete-selected-btn {
+  height: 35px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--input-border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.edit-btn:hover,
+.cancel-select-btn:hover { background: var(--bg); }
+.delete-selected-btn {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.delete-selected-btn:hover:not(:disabled) { background: #c23a3a; }
+.delete-selected-btn:disabled {
+  background: var(--danger-bg);
+  border-color: var(--danger-bg);
+  color: var(--danger);
+  opacity: 0.7;
+  cursor: default;
+}
+
 .toggle-label {
   display: flex;
   align-items: center;
@@ -308,6 +343,39 @@ a.card.card-link:hover {
   transform: translateY(-2px);
   border-color: #ccc;
 }
+.card.card-selectable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card.card-selectable:hover { border-color: #ccc; }
+.card.card-selected {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand);
+}
+.card-select-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.select-checkbox {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-tag);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.select-checkbox svg { width: 14px; height: 14px; }
+.select-checkbox.checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
 
 .card-image-wrap {
   position: relative;
@@ -350,6 +418,7 @@ a.card.card-link:hover {
 }
 .tag-icon.delete:hover { background: var(--danger-bg); color: var(--danger); }
 .tag-icon svg { width: 12px; height: 12px; display: block; }
+.tag-icon:disabled { cursor: default; opacity: 0.6; }
 
 .card-tags-bottom {
   position: absolute;
@@ -859,6 +928,10 @@ form button {
   }
   .search-input { width: 100%; height: 44px; }
   .filters-toggles { width: 100%; justify-content: flex-start; gap: 24px; }
+  .select-mode-actions { width: 100%; margin-left: 0; }
+  .edit-btn,
+  .cancel-select-btn,
+  .delete-selected-btn { flex: 1; height: 44px; }
   .toggle-label { min-height: 44px; font-size: 15px; }
 
   .category-filters { gap: 8px; }
