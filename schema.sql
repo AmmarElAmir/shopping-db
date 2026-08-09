@@ -75,6 +75,33 @@ create table if not exists product_images (
   created_at timestamptz not null default now()
 );
 
+-- Simple tracking table for newborn/baby shopping needs (checklist style,
+-- distinct from the main `products` comparison catalog). Lives in the same
+-- Supabase project so it shares auth-free RLS and infra with everything else.
+create table if not exists baby_needs (
+  id uuid primary key default gen_random_uuid(),
+  item text not null,
+  category text,                 -- e.g. Clothing, Feeding, Nursery, Safety, Travel
+  sku text,
+  size text,
+  store text,
+  pack_size integer not null default 1,
+  quantity integer not null default 1,       -- number of packs/units ordered
+  total_pieces integer generated always as (pack_size * quantity) stored,
+  price numeric(12,2),
+  currency text default 'AED',
+  status text not null default 'needed' check (status in ('needed', 'purchased')),
+  notes text,
+  image_url text,
+  source text not null default 'manual' check (source in ('manual', 'online')),
+  purchased_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_baby_needs_status on baby_needs(status);
+create index if not exists idx_baby_needs_category on baby_needs(category);
+
 -- keep updated_at fresh
 create or replace function set_updated_at() returns trigger as $$
 begin
@@ -88,6 +115,11 @@ create trigger trg_products_updated
 before update on products
 for each row execute function set_updated_at();
 
+drop trigger if exists trg_baby_needs_updated on baby_needs;
+create trigger trg_baby_needs_updated
+before update on baby_needs
+for each row execute function set_updated_at();
+
 -- Row Level Security: open read/write since this is a personal/shared tool
 -- with no login. Tighten later if you add auth.
 alter table categories enable row level security;
@@ -96,6 +128,7 @@ alter table comparisons enable row level security;
 alter table submissions enable row level security;
 alter table submission_images enable row level security;
 alter table product_images enable row level security;
+alter table baby_needs enable row level security;
 
 create policy "public read categories" on categories for select using (true);
 create policy "public write categories" on categories for insert with check (true);
@@ -115,6 +148,11 @@ create policy "public insert submission images" on submission_images for insert 
 
 create policy "public read product images" on product_images for select using (true);
 create policy "service insert product images" on product_images for insert with check (true);
+
+create policy "public read baby needs" on baby_needs for select using (true);
+create policy "public insert baby needs" on baby_needs for insert with check (true);
+create policy "public update baby needs" on baby_needs for update using (true);
+create policy "public delete baby needs" on baby_needs for delete using (true);
 
 -- Storage bucket for uploaded product photos
 insert into storage.buckets (id, name, public)
