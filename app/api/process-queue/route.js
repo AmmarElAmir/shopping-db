@@ -30,6 +30,7 @@ export async function POST() {
     });
 
     const bodyText = await res.text();
+    console.log(`[process-queue] routine trigger responded ${res.status}: ${bodyText}`);
 
     if (!res.ok) {
       return Response.json(
@@ -40,6 +41,7 @@ export async function POST() {
 
     return Response.json({ ok: true, result: bodyText || null });
   } catch (err) {
+    console.error("[process-queue] failed to reach routine trigger:", err);
     return Response.json(
       { ok: false, error: err.message || "Failed to reach the routine trigger." },
       { status: 502 },
