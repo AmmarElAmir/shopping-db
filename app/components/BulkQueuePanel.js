@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { nonProductReason } from "../../lib/productLinks";
 
 function extractLinks(raw) {
   return raw
@@ -25,6 +26,7 @@ export default function BulkQueuePanel({ compact = false }) {
   const [ingesting, setIngesting] = useState(false);
   const [error, setError] = useState(null);
   const [lastAdded, setLastAdded] = useState(0);
+  const [lastSkipped, setLastSkipped] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [processMessage, setProcessMessage] = useState(null);
 
@@ -49,13 +51,22 @@ export default function BulkQueuePanel({ compact = false }) {
   }, []);
 
   async function ingest(text) {
-    const links = [...new Set(extractLinks(text).filter(isLikelyUrl))];
-    if (links.length === 0) {
+    const candidates = [...new Set(extractLinks(text).filter(isLikelyUrl))];
+    const links = candidates.filter((link) => !nonProductReason(link));
+    const skipped = candidates.length - links.length;
+    if (candidates.length === 0) {
       setError("That didn't look like a link. Paste one or more URLs.");
+      return;
+    }
+    if (links.length === 0) {
+      setError(
+        `Skipped ${skipped} link${skipped === 1 ? "" : "s"} that ${skipped === 1 ? "isn't" : "aren't"} product pages (account, order, cart, search or home pages).`,
+      );
       return;
     }
     setIngesting(true);
     setError(null);
+    setLastSkipped(0);
     const { data, error: insertError } = await supabase
       .from("submissions")
       .insert(links.map((link) => ({ link })))
@@ -67,6 +78,7 @@ export default function BulkQueuePanel({ compact = false }) {
       return;
     }
     setLastAdded(data?.length || 0);
+    setLastSkipped(skipped);
     await loadQueue();
   }
 
@@ -138,6 +150,7 @@ export default function BulkQueuePanel({ compact = false }) {
       {!ingesting && !error && lastAdded > 0 && (
         <p className="bulk-paste-hint">
           Added {lastAdded} link{lastAdded === 1 ? "" : "s"} to the queue.
+          {lastSkipped > 0 && ` Skipped ${lastSkipped} that ${lastSkipped === 1 ? "isn't a product page" : "aren't product pages"}.`}
         </p>
       )}
 
