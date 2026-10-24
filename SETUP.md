@@ -66,6 +66,12 @@ they never reach the browser:
 - `ROUTINE_TRIGGER_URL` — the routine's fire endpoint.
 - `ROUTINE_TRIGGER_TOKEN` — bearer token for that endpoint.
 
+The routine itself only reads from Supabase. It sends its extracted results to
+the `ingest-products` edge function (`supabase deploy` it like `process-submission`;
+JWT verification stays on), which does every write. See `docs/routine-prompt.md`
+for the routine's prompt. This keeps unattended runs from stalling on a
+tool-approval prompt.
+
 Both are set in `.env.local` for local dev. **For the deployed site, add the
 same two variables in Vercel → Project Settings → Environment Variables** —
 do not prefix them with `NEXT_PUBLIC_`, or the token would be exposed in the
