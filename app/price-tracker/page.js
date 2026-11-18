@@ -12,6 +12,8 @@ const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
+const DUBAI_DATE = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "numeric", month: "short" });
+
 function formatPrice(value, currency) {
   if (value == null) return "—";
   return `${currency || "AED"} ${Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
@@ -72,12 +74,22 @@ function TrackSwitch({ on, onClick, disabled }) {
   );
 }
 
+// The price recorded when tracking was switched on: the first history row in the
+// current tracking period, falling back to the earliest row we have.
+function startingPrice(p, history) {
+  if (!history.length) return null;
+  const since = p.tracking_started_at ? new Date(p.tracking_started_at).getTime() : null;
+  const inPeriod = since == null ? null : history.find((h) => new Date(h.checked_at).getTime() >= since - 60 * 1000);
+  return inPeriod || history[0];
+}
+
 function TrackedRow({ p, history, busy, onToggle, onExtend }) {
   const link = p.product_link || p.product_url;
   const ended = !p.is_tracked;
   const left = timeLeftLabel(p.tracking_ends_at);
   const endingSoon = p.is_tracked && p.tracking_ends_at &&
     new Date(p.tracking_ends_at).getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+  const start = startingPrice(p, history);
   const atLowest = p.price != null && p.lowest_price != null && Number(p.price) <= Number(p.lowest_price);
 
   return (
@@ -94,6 +106,12 @@ function TrackedRow({ p, history, busy, onToggle, onExtend }) {
             {p.store || "Unknown store"}
             {p.last_checked_at && ` · checked ${DUBAI_TIME.format(new Date(p.last_checked_at))}`}
           </span>
+          {start && (
+            <span className="pt-start">
+              Started at {formatPrice(start.price, start.currency || p.currency)} on{" "}
+              {DUBAI_DATE.format(new Date(start.checked_at))}
+            </span>
+          )}
           {p.last_check_error && <span className="pt-error">Last check failed: {p.last_check_error}</span>}
         </div>
       </div>
