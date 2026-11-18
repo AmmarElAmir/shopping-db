@@ -1,7 +1,7 @@
 # "Shopping DB price alerts" scheduled task
 
-Delivers price tracker alerts to Ammar. It runs about 15 minutes after each
-price check: **10:15, 14:15 and 17:15 Asia/Dubai** (cron `15 6,10,13 * * *`
+Delivers price tracker alerts to Ammar. It runs about 20 minutes after each
+price check (which fires at 09:39, 13:39 and 16:39): **10:00, 14:00 and 17:00 Asia/Dubai** (cron `0 6,10,13 * * *`
 in UTC), and is a scheduled task inside the Price Tracking Claude project, so
 its messages land in that project and reach Ammar as normal Claude app
 notifications.
