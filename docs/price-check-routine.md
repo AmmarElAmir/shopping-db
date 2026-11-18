@@ -36,6 +36,7 @@ This routine runs unattended. It must only READ from Supabase. All database writ
    If there are none, confirm briefly and stop.
 2. For each product, open its link and read the CURRENT selling price (the price a buyer pays now, including any sale price; not the struck-through "was" price, not a per-unit or instalment price) and its currency.
    - Use a scraping tool that can render JS-heavy retail pages (plain WebFetch gets 403'd by noon.com, IKEA, Home Centre) — e.g. the Nimble extract tool.
+   - Amazon: if the product page shows no price ("No featured offers available" / "See All Buying Options" / "Currently unavailable"), open the offers listing for its ASIN, https://www.amazon.ae/gp/product/ajax/aodAjaxMain/?asin=<ASIN>&pc=dp , and use the lowest price for a NEW item (prefer one sold by the brand or Amazon). Only record a failure if that listing has no new offers either.
    - Make sure the page is the same product (same name/variant) as the row. If the link now redirects to a different product, a search page, or says out of stock with no price, record it as a failure with a clear reason. Never guess a price.
 3. Send ALL results in ONE request:
 
