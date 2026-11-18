@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { IconCartCheck, IconHeart, IconSparkle, IconLink, IconTrash } from "../lib/icons";
+import { IconCartCheck, IconHeart, IconSparkle, IconLink, IconTrash, IconTrend } from "../lib/icons";
+import { setTracking } from "../lib/priceTracking";
 import SwipeToConfirmDelete from "./components/SwipeToConfirmDelete";
 import FloatingAddButton from "./components/FloatingAddButton";
 
@@ -23,7 +24,7 @@ function Toggle({ on, onClick, label }) {
   );
 }
 
-function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest, selectMode, selected, onToggleSelect }) {
+function ProductCard({ p, categoryName, onToggleTag, onToggleTracking, onDeleteRequest, selectMode, selected, onToggleSelect }) {
   const link = p.product_link || p.product_url;
   const CardTag = !selectMode && link ? "a" : "div";
   const cardProps = !selectMode && link ? { href: link, target: "_blank", rel: "noopener noreferrer" } : {};
@@ -89,6 +90,20 @@ function ProductCard({ p, categoryName, onToggleTag, onDeleteRequest, selectMode
             disabled={selectMode}
           >
             <IconHeart on={p.is_favorite} />
+          </button>
+          <button
+            type="button"
+            className={`tag-icon track${p.is_tracked ? " on" : " off"}`}
+            title={p.is_tracked ? "Price tracking on (tap to stop)" : "Track price"}
+            aria-pressed={Boolean(p.is_tracked)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleTracking(p);
+            }}
+            disabled={selectMode}
+          >
+            <IconTrend on={p.is_tracked} />
           </button>
           {!selectMode && (
             <button
@@ -236,6 +251,17 @@ export default function ProductsPage() {
     }
   }
 
+  async function handleToggleTracking(product) {
+    const next = !product.is_tracked;
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_tracked: next } : p)));
+    try {
+      const updated = await setTracking(product, next);
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, ...updated } : p)));
+    } catch {
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_tracked: product.is_tracked } : p)));
+    }
+  }
+
   async function handleConfirmDelete() {
     setDeleting(true);
     setDeleteError(null);
@@ -365,6 +391,7 @@ export default function ProductsPage() {
               p={p}
               categoryName={p.categories?.name}
               onToggleTag={handleToggleTag}
+              onToggleTracking={handleToggleTracking}
               onDeleteRequest={(product) => {
                 setDeleteError(null);
                 setDeleteTarget(product);
