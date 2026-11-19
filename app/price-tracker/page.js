@@ -13,8 +13,6 @@ const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-const DUBAI_DATE = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "numeric", month: "short" });
-
 function formatPrice(value, currency) {
   if (value == null) return "—";
   return `${currency || "AED"} ${Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
@@ -107,14 +105,14 @@ function TrackedRow({ p, history, busy, onToggle, onExtend }) {
             {p.store || "Unknown store"}
             {p.last_checked_at && ` · checked ${DUBAI_TIME.format(new Date(p.last_checked_at))}`}
           </span>
-          {start && (
-            <span className="pt-start">
-              Started at {formatPrice(start.price, start.currency || p.currency)} on{" "}
-              {DUBAI_DATE.format(new Date(start.checked_at))}
-            </span>
-          )}
           {p.last_check_error && <span className="pt-error">Last check failed: {p.last_check_error}</span>}
         </div>
+      </div>
+
+      <div className="pt-cell">
+        <span className="pt-label">Started at</span>
+        <span className="pt-price">{start ? formatPrice(start.price, start.currency || p.currency) : "—"}</span>
+        {start && <span className="pt-meta">{DUBAI_TIME.format(new Date(start.checked_at))}</span>}
       </div>
 
       <div className="pt-cell">
