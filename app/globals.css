@@ -1086,7 +1086,7 @@ form button {
 
 .pt-row {
   display: grid;
-  grid-template-columns: minmax(240px, 2.2fr) 1fr 1fr 1.3fr 1.2fr;
+  grid-template-columns: minmax(220px, 2fr) 1fr 1fr 1fr 1.3fr 1.2fr;
   gap: 16px;
   align-items: center;
   background: var(--surface);
@@ -1104,7 +1104,6 @@ a.pt-name:hover { text-decoration: underline; }
 .pt-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-placeholder); }
 .pt-price { font-size: 16px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 .pt-meta { font-size: 12px; color: var(--text-secondary); }
-.pt-start { font-size: 11px; color: var(--text-secondary); opacity: 0.85; }
 .pt-error { font-size: 12px; color: var(--danger); }
 .pt-ending { color: var(--danger); font-weight: 600; }
 .pt-chip { font-size: 11px; font-weight: 600; border-radius: var(--radius-pill); padding: 2px 8px; }
