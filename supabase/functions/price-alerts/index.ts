@@ -46,12 +46,29 @@ const TRACKING_DAYS = 7;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-// Web Push (VAPID). Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
-const PUSH_ENABLED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
-if (PUSH_ENABLED) {
-  webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") || "mailto:alerts@example.com", VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
+// Web Push (VAPID). Keys come from the function secrets VAPID_PUBLIC_KEY /
+// VAPID_PRIVATE_KEY / VAPID_SUBJECT, or else from the service-role-only
+// `push_config` table (see 20261119000000_push_subscriptions.sql).
+let PUSH_ENABLED = false;
+let vapidLoaded = false;
+async function loadVapid() {
+  if (vapidLoaded) return PUSH_ENABLED;
+  vapidLoaded = true;
+  let pub = Deno.env.get("VAPID_PUBLIC_KEY");
+  let priv = Deno.env.get("VAPID_PRIVATE_KEY");
+  let subject = Deno.env.get("VAPID_SUBJECT");
+  if (!pub || !priv) {
+    const { data } = await supabase.from("push_config")
+      .select("vapid_public_key, vapid_private_key, vapid_subject").eq("id", 1).maybeSingle();
+    pub = data?.vapid_public_key;
+    priv = data?.vapid_private_key;
+    subject = subject || data?.vapid_subject;
+  }
+  if (pub && priv) {
+    webpush.setVapidDetails(subject || "mailto:alerts@example.com", pub, priv);
+    PUSH_ENABLED = true;
+  }
+  return PUSH_ENABLED;
 }
 
 const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -86,7 +103,7 @@ function alertPayload(a: any) {
 }
 
 async function sendToSubscriptions(payloads: object[], endpoint?: string) {
-  if (!PUSH_ENABLED) return { configured: false, devices: 0, sent: 0, removed: 0 };
+  if (!(await loadVapid())) return { configured: false, devices: 0, sent: 0, removed: 0 };
   let query = supabase.from("push_subscriptions").select("id, endpoint, p256dh, auth");
   if (endpoint) query = query.eq("endpoint", endpoint);
   const { data: subs, error } = await query;
@@ -118,7 +135,7 @@ async function sendToSubscriptions(payloads: object[], endpoint?: string) {
 
 async function pushNewAlerts(alerts: any[]) {
   const fresh = alerts.filter((a) => !a.pushed_at);
-  if (!PUSH_ENABLED || !fresh.length) return { configured: PUSH_ENABLED, pushed: 0 };
+  if (!(await loadVapid()) || !fresh.length) return { configured: PUSH_ENABLED, pushed: 0 };
   const result = await sendToSubscriptions(fresh.map(alertPayload));
   // Stamp them either way, so a device that subscribes later is not flooded
   // with old alerts and a retried collect does not push twice.
@@ -139,7 +156,7 @@ async function subscribe(sub: any, userAgent: unknown) {
     { onConflict: "endpoint" },
   );
   if (error) throw error;
-  return { ok: true, push_configured: PUSH_ENABLED };
+  return { ok: true, push_configured: await loadVapid() };
 }
 
 async function unsubscribe(endpoint: unknown) {
@@ -150,7 +167,7 @@ async function unsubscribe(endpoint: unknown) {
 }
 
 async function testPush(endpoint: unknown) {
-  if (!PUSH_ENABLED) throw new Error("Push is not configured yet (VAPID keys missing).");
+  if (!(await loadVapid())) throw new Error("Push is not configured yet (VAPID keys missing).");
   const result = await sendToSubscriptions(
     [{ title: "Price tracker notifications are on", body: "You'll get price drop and tracking-ending alerts here.", url: "/price-tracker", tag: "test" }],
     typeof endpoint === "string" && endpoint ? endpoint : undefined,

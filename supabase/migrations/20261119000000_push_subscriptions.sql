@@ -21,3 +21,15 @@ create table if not exists push_subscriptions (
 alter table push_subscriptions enable row level security;
 
 alter table price_alerts add column if not exists pushed_at timestamptz;
+
+-- VAPID keys for sending pushes, read by the edge function with the service
+-- role. No policies, so the anon key cannot read it. Function secrets
+-- (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT) take precedence.
+-- The row itself is inserted out of band, never committed to git.
+create table if not exists push_config (
+  id int primary key default 1 check (id = 1),
+  vapid_public_key text not null,
+  vapid_private_key text not null,
+  vapid_subject text
+);
+alter table push_config enable row level security;

@@ -28,8 +28,9 @@ project stays as a backup.
 One-time setup:
 
 1. Apply `supabase/migrations/20261119000000_push_subscriptions.sql`.
-2. Set the function secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
-   `VAPID_SUBJECT` (a `mailto:` address), then redeploy `price-alerts`.
+2. Store the VAPID key pair in the service-role-only `push_config` row (or as
+   the function secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT`, which take precedence), then deploy `price-alerts`.
    The public key must match `VAPID_PUBLIC_KEY` in `lib/push.js`
    (or `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in Vercel). Generate a pair with
    `npx web-push generate-vapid-keys`.
