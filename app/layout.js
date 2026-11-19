@@ -4,6 +4,10 @@ import NavLinks from "../lib/NavLinks";
 export const metadata = {
   title: "Dubai Shopping Database",
   description: "Personal product catalog with prices, stores, and Claude-written comparisons.",
+  // Lets the site be added to the Home Screen as an app, which iPhone and
+  // iPad need before they allow push notifications.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Shopping DB", statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }) {

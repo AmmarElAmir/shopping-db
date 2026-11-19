@@ -18,6 +18,12 @@
 //       { ok, alerts: [{ id, kind, product_id, name, link, store, currency,
 //         old_price, new_price, lowest_price, current_price,
 //         tracking_ends_at, created_at }] }
+//       If VAPID keys are set, each alert not yet pushed is also sent as a
+//       browser push notification to every subscribed device (once).
+//   { "action": "subscribe", "subscription": PushSubscriptionJSON, "user_agent" }
+//   { "action": "unsubscribe", "endpoint": "..." }
+//   { "action": "test_push", "endpoint": "..." }   (one device; omit for all)
+//       Browser push setup, called by the site's Price Tracker tab.
 //   { "action": "ack", "alert_ids": ["..."] }
 //       Marks alerts as sent. Call only after they were delivered.
 //   { "action": "extend", "product_ids": ["..."] }
@@ -31,6 +37,7 @@
 // key as `Authorization: Bearer <key>`.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,6 +45,119 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const TRACKING_DAYS = 7;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+// Web Push (VAPID). Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
+const PUSH_ENABLED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (PUSH_ENABLED) {
+  webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") || "mailto:alerts@example.com", VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
+}
+
+const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+});
+
+const money = (v: number | null, cur: string) =>
+  v == null ? "?" : `${Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${cur}`;
+
+function shortName(name: string | null) {
+  const n = name || "A tracked product";
+  return n.length > 60 ? n.slice(0, 57) + "…" : n;
+}
+
+function alertPayload(a: any) {
+  if (a.kind === "price_drop") {
+    return {
+      title: `Price drop: ${shortName(a.name)}`,
+      body: `Now ${money(a.new_price, a.currency)} (lowest before: ${money(a.old_price, a.currency)})` +
+        (a.store ? ` at ${a.store}` : ""),
+      url: a.link || "/price-tracker",
+      tag: `drop-${a.product_id}`,
+    };
+  }
+  const ends = a.tracking_ends_at ? DUBAI_TIME.format(new Date(a.tracking_ends_at)) : "soon";
+  return {
+    title: `Tracking ends soon: ${shortName(a.name)}`,
+    body: `Ends ${ends} (Dubai). Now ${money(a.new_price, a.currency)}. Tap to extend by 7 days.`,
+    url: "/price-tracker",
+    tag: `ending-${a.product_id}`,
+  };
+}
+
+async function sendToSubscriptions(payloads: object[], endpoint?: string) {
+  if (!PUSH_ENABLED) return { configured: false, devices: 0, sent: 0, removed: 0 };
+  let query = supabase.from("push_subscriptions").select("id, endpoint, p256dh, auth");
+  if (endpoint) query = query.eq("endpoint", endpoint);
+  const { data: subs, error } = await query;
+  if (error) throw error;
+  let sent = 0;
+  let removed = 0;
+  for (const s of subs || []) {
+    const sub = { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } };
+    for (const payload of payloads) {
+      try {
+        await webpush.sendNotification(sub, JSON.stringify(payload), { TTL: 6 * 60 * 60 });
+        sent++;
+        await supabase.from("push_subscriptions")
+          .update({ last_success_at: new Date().toISOString(), last_error: null }).eq("id", s.id);
+      } catch (err: any) {
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          // The browser dropped this subscription; forget it.
+          await supabase.from("push_subscriptions").delete().eq("id", s.id);
+          removed++;
+          break;
+        }
+        await supabase.from("push_subscriptions")
+          .update({ last_error: String(err?.body || err?.message || err).slice(0, 500) }).eq("id", s.id);
+      }
+    }
+  }
+  return { configured: true, devices: (subs || []).length, sent, removed };
+}
+
+async function pushNewAlerts(alerts: any[]) {
+  const fresh = alerts.filter((a) => !a.pushed_at);
+  if (!PUSH_ENABLED || !fresh.length) return { configured: PUSH_ENABLED, pushed: 0 };
+  const result = await sendToSubscriptions(fresh.map(alertPayload));
+  // Stamp them either way, so a device that subscribes later is not flooded
+  // with old alerts and a retried collect does not push twice.
+  await supabase.from("price_alerts").update({ pushed_at: new Date().toISOString() })
+    .in("id", fresh.map((a) => a.id));
+  return { ...result, pushed: fresh.length };
+}
+
+async function subscribe(sub: any, userAgent: unknown) {
+  const endpoint = sub?.endpoint;
+  const p256dh = sub?.keys?.p256dh;
+  const auth = sub?.keys?.auth;
+  if (typeof endpoint !== "string" || !endpoint.startsWith("https://") || !p256dh || !auth) {
+    throw new Error("subscription must include an https endpoint and keys.p256dh / keys.auth");
+  }
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    { endpoint, p256dh, auth, user_agent: typeof userAgent === "string" ? userAgent.slice(0, 300) : null, last_error: null },
+    { onConflict: "endpoint" },
+  );
+  if (error) throw error;
+  return { ok: true, push_configured: PUSH_ENABLED };
+}
+
+async function unsubscribe(endpoint: unknown) {
+  if (typeof endpoint !== "string" || !endpoint) throw new Error("endpoint is required");
+  const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function testPush(endpoint: unknown) {
+  if (!PUSH_ENABLED) throw new Error("Push is not configured yet (VAPID keys missing).");
+  const result = await sendToSubscriptions(
+    [{ title: "Price tracker notifications are on", body: "You'll get price drop and tracking-ending alerts here.", url: "/price-tracker", tag: "test" }],
+    typeof endpoint === "string" && endpoint ? endpoint : undefined,
+  );
+  if (!result.devices) throw new Error("This device is not subscribed. Turn notifications on first.");
+  return { ok: true, ...result };
+}
 
 const num = (v: unknown) => (v == null ? null : Number(v));
 
@@ -83,7 +203,7 @@ async function collect() {
   const { data, error } = await supabase
     .from("price_alerts")
     .select(
-      "id, kind, product_id, old_price, new_price, currency, tracking_ends_at, created_at, " +
+      "id, kind, product_id, old_price, new_price, currency, tracking_ends_at, created_at, pushed_at, " +
         "products(name, product_link, product_url, store, price, lowest_price, tracking_ends_at, is_tracked)",
     )
     .is("sent_at", null)
@@ -106,8 +226,16 @@ async function collect() {
     tracking_ends_at: a.products?.tracking_ends_at ?? a.tracking_ends_at,
     is_tracked: a.products?.is_tracked ?? false,
     created_at: a.created_at,
+    pushed_at: a.pushed_at,
   }));
-  return { ok: true, ending_alerts_written: written, alerts };
+  let push;
+  try {
+    push = await pushNewAlerts(alerts);
+  } catch (err) {
+    // Never let a push problem block the Claude fallback message.
+    push = { configured: PUSH_ENABLED, error: String((err as any)?.message || err) };
+  }
+  return { ok: true, ending_alerts_written: written, push, alerts };
 }
 
 async function ack(ids: unknown) {
@@ -160,28 +288,41 @@ async function extend(productIds: unknown, allEnding: unknown) {
   return { ok: true, results };
 }
 
+// The site calls subscribe / unsubscribe / test_push from the browser.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const reply = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
+
 Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return Response.json({ ok: false, error: "POST only" }, { status: 405 });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return reply({ ok: false, error: "POST only" }, 405);
   let body: any;
   try {
     body = await req.json();
   } catch (err) {
-    return Response.json({ ok: false, error: `Bad payload: ${err.message}` }, { status: 400 });
+    return reply({ ok: false, error: `Bad payload: ${(err as any).message}` }, 400);
   }
   try {
     switch (body?.action) {
       case "collect":
-        return Response.json(await collect());
+        return reply(await collect());
+      case "subscribe":
+        return reply(await subscribe(body.subscription, body.user_agent));
+      case "unsubscribe":
+        return reply(await unsubscribe(body.endpoint));
+      case "test_push":
+        return reply(await testPush(body.endpoint));
       case "ack":
-        return Response.json(await ack(body.alert_ids));
+        return reply(await ack(body.alert_ids));
       case "extend":
-        return Response.json(await extend(body.product_ids, body.all_ending));
+        return reply(await extend(body.product_ids, body.all_ending));
       default:
-        return Response.json({ ok: false, error: "action must be collect, ack or extend" }, { status: 400 });
+        return reply({ ok: false, error: "action must be collect, ack, extend, subscribe, unsubscribe or test_push" }, 400);
     }
   } catch (err) {
-    return Response.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
+    return reply({ ok: false, error: String((err as any)?.message || err) }, 500);
   }
 });

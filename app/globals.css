@@ -1142,3 +1142,14 @@ a.pt-name:hover { text-decoration: underline; }
   .pt-add { width: 100%; }
   .pt-add-select { flex: 1; min-width: 0; max-width: none; }
 }
+
+/* Push notification toggle on the Price Tracker tab */
+.pt-push { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.pt-push-btn {
+  border: 1px solid var(--brand); background: var(--brand); color: #fff; border-radius: 999px;
+  padding: 6px 14px; font-size: 13px; cursor: pointer;
+}
+.pt-push-btn.ghost { background: transparent; color: var(--brand); }
+.pt-push-btn:disabled { opacity: 0.6; cursor: default; }
+.pt-push-state { color: var(--text-primary); }
+.pt-push-hint, .pt-push-note { color: var(--text-secondary); }
