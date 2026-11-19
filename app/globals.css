@@ -1135,9 +1135,12 @@ a.pt-name:hover { text-decoration: underline; }
 .pt-extend:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 900px) {
-  .pt-row { grid-template-columns: 1fr 1fr; }
+  /* Phone: the three prices share one row, trend and controls below. */
+  .pt-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .pt-product { grid-column: 1 / -1; }
-  .pt-actions { align-items: flex-start; }
+  .pt-row .pt-price { font-size: 15px; }
+  .pt-trend { grid-column: span 2; }
+  .pt-actions { align-items: flex-end; }
   .pt-add { width: 100%; }
   .pt-add-select { flex: 1; min-width: 0; max-width: none; }
 }
