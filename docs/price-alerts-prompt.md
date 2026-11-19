@@ -18,6 +18,27 @@ with the project's anon key.
 2. `supabase functions deploy price-alerts` (JWT verification stays on).
 3. Create the scheduled task with the prompt below.
 
+## Browser push notifications
+
+Each `collect` call also sends every alert that hasn't been pushed yet as a
+browser push notification to every device that turned notifications on
+(Price Tracker tab, "Turn on notifications"). The Claude message in the
+project stays as a backup.
+
+One-time setup:
+
+1. Apply `supabase/migrations/20261119000000_push_subscriptions.sql`.
+2. Store the VAPID key pair in the service-role-only `push_config` row (or as
+   the function secrets `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT`, which take precedence), then deploy `price-alerts`.
+   The public key must match `VAPID_PUBLIC_KEY` in `lib/push.js`
+   (or `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in Vercel). Generate a pair with
+   `npx web-push generate-vapid-keys`.
+3. On each device, open the Price Tracker tab and tap "Turn on
+   notifications", then "Send test". On iPhone or iPad, add the site to the
+   Home Screen first (Share, then Add to Home Screen) and open it from there;
+   Safari only allows web push for Home Screen apps.
+
 ## How "extend" works
 
 The one-day-left alert offers two ways to add 7 days:

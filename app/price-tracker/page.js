@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import PushToggle from "../components/PushToggle";
 import { extendTracking, setTracking, timeLeftLabel, TRACKING_DAYS } from "../../lib/priceTracking";
 
 const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -235,6 +236,7 @@ export default function PriceTrackerPage() {
             Prices are checked at 10 AM, 2 PM and 5 PM (Dubai) for {TRACKING_DAYS} days per product. You get a
             notification when a price drops below the lowest seen, and a day before tracking ends.
           </p>
+          <PushToggle />
         </div>
         <AddTracking products={untracked} busy={Boolean(busyId)} onTrack={(p) => run(p, (x) => setTracking(x, true))} />
       </div>
