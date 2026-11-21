@@ -3,7 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import PushToggle from "../components/PushToggle";
-import { extendTracking, setTracking, timeLeftLabel, TRACKING_DAYS } from "../../lib/priceTracking";
+import {
+  addListingByHand,
+  confirmListing,
+  extendTracking,
+  otherPlatformOf,
+  platformLabel,
+  rejectListing,
+  searchAgain,
+  setTracking,
+  timeLeftLabel,
+  TRACKING_DAYS,
+} from "../../lib/priceTracking";
 
 const DUBAI_TIME = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Dubai",
@@ -82,13 +93,129 @@ function startingPrice(p, history) {
   return inPeriod || history[0];
 }
 
-function TrackedRow({ p, history, busy, onToggle, onExtend }) {
+// The same item on the other platform (noon <-> Amazon.ae): its price next to
+// this one, a confirm step for uncertain matches, or a way to paste a link.
+function OtherPlatform({ p, listings, onListing, onProduct }) {
+  const platform = otherPlatformOf(p);
+  const [pasting, setPasting] = useState(false);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  if (!platform) return null;
+  const label = platformLabel(platform);
+  const listing = listings.find((l) => l.match_status === "confirmed") ||
+    listings.find((l) => l.match_status === "suggested");
+
+  async function act(fn, apply) {
+    setBusy(true);
+    setErr(null);
+    try {
+      apply(await fn());
+      setPasting(false);
+      setUrl("");
+    } catch (e) {
+      setErr(e.message || "Couldn't save that. Try again.");
+    }
+    setBusy(false);
+  }
+
+  const pasteForm = (
+    <form className="pt-other-paste" onSubmit={(e) => {
+      e.preventDefault();
+      if (url.trim()) act(() => addListingByHand(p, url), onListing);
+    }}>
+      <input className="search-input" type="url" placeholder={`Paste the ${label} link`} value={url}
+        onChange={(e) => setUrl(e.target.value)} autoFocus />
+      <button type="submit" className="pt-extend" disabled={busy || !url.trim()}>Add</button>
+      <button type="button" className="pt-link-btn" onClick={() => setPasting(false)}>Cancel</button>
+    </form>
+  );
+
+  let body;
+  if (listing) {
+    const own = p.price != null ? Number(p.price) : null;
+    const theirs = listing.price != null ? Number(listing.price) : null;
+    const diff = own != null && theirs != null ? theirs - own : null;
+    const suggested = listing.match_status === "suggested";
+    body = (
+      <>
+        <span className="pt-other-text">
+          <span className="pt-label">{suggested ? `Possible match on ${label}` : `Also on ${label}`}</span>
+          <a className="pt-other-name" href={listing.url} target="_blank" rel="noopener noreferrer">
+            {listing.title || `View on ${label}`}
+          </a>
+          {suggested && listing.match_note && <span className="pt-meta">{listing.match_note}</span>}
+          {listing.last_check_error && <span className="pt-error">Last check failed: {listing.last_check_error}</span>}
+        </span>
+        <span className="pt-other-price">
+          <span className="pt-price">{theirs != null ? formatPrice(theirs, listing.currency || p.currency) : "Checking soon"}</span>
+          {diff != null && diff < 0 && <span className="pt-chip low">{formatPrice(-diff, p.currency)} cheaper</span>}
+          {diff != null && diff > 0 && <span className="pt-meta">{formatPrice(diff, p.currency)} more</span>}
+          {diff === 0 && <span className="pt-meta">Same price</span>}
+        </span>
+        <span className="pt-other-actions">
+          {suggested ? (
+            <>
+              <span className="pt-meta">Same item?</span>
+              <button type="button" className="pt-extend" disabled={busy}
+                onClick={() => act(() => confirmListing(listing), onListing)}>Yes, track it</button>
+              <button type="button" className="pt-link-btn" disabled={busy}
+                onClick={() => act(() => rejectListing(listing), onListing)}>Not it</button>
+            </>
+          ) : (
+            <button type="button" className="pt-link-btn" disabled={busy}
+              onClick={() => act(() => rejectListing(listing), onListing)}>Not the same item</button>
+          )}
+        </span>
+      </>
+    );
+  } else if (pasting) {
+    body = pasteForm;
+  } else if (p.match_searched_at) {
+    body = (
+      <>
+        <span className="pt-meta">{p.match_search_note || `Not found on ${label}`}</span>
+        <span className="pt-other-actions">
+          <button type="button" className="pt-link-btn" onClick={() => setPasting(true)}>Paste a link</button>
+          {p.is_tracked && (
+            <button type="button" className="pt-link-btn" disabled={busy}
+              onClick={() => act(() => searchAgain(p), onProduct)}>Search again</button>
+          )}
+        </span>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <span className="pt-meta">
+          {p.is_tracked ? `Looking for it on ${label} at the next check.` : `Not checked on ${label} yet.`}
+        </span>
+        <span className="pt-other-actions">
+          <button type="button" className="pt-link-btn" onClick={() => setPasting(true)}>Paste a link</button>
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <div className="pt-other">
+      {body}
+      {err && <span className="pt-error">{err}</span>}
+    </div>
+  );
+}
+
+function TrackedRow({ p, history, listings, busy, onToggle, onExtend, onListing, onProduct }) {
   const link = p.product_link || p.product_url;
   const ended = !p.is_tracked;
   const left = timeLeftLabel(p.tracking_ends_at);
   const endingSoon = p.is_tracked && p.tracking_ends_at &&
     new Date(p.tracking_ends_at).getTime() - Date.now() <= 24 * 60 * 60 * 1000;
-  const start = startingPrice(p, history);
+  // history holds both platforms; the sparkline and starting price follow this
+  // product's own link, while "Lowest seen" is the lowest on either.
+  const ownHistory = history.filter((h) => !h.listing_id);
+  const start = startingPrice(p, ownHistory);
+  const hasOther = listings.some((l) => l.match_status === "confirmed");
   const atLowest = p.price != null && p.lowest_price != null && Number(p.price) <= Number(p.lowest_price);
 
   return (
@@ -118,19 +245,19 @@ function TrackedRow({ p, history, busy, onToggle, onExtend }) {
       <div className="pt-cell">
         <span className="pt-label">Current</span>
         <span className="pt-price">{formatPrice(p.price, p.currency)}</span>
-        {atLowest && history.length > 1 && <span className="pt-chip low">Lowest yet</span>}
+        {atLowest && ownHistory.length > 1 && <span className="pt-chip low">Lowest yet</span>}
       </div>
 
       <div className="pt-cell">
-        <span className="pt-label">Lowest seen</span>
+        <span className="pt-label">{hasOther ? "Lowest (both)" : "Lowest seen"}</span>
         <span className="pt-price">{formatPrice(p.lowest_price, p.currency)}</span>
         {p.lowest_price_at && <span className="pt-meta">{DUBAI_TIME.format(new Date(p.lowest_price_at))}</span>}
       </div>
 
       <div className="pt-cell pt-trend">
         <span className="pt-label">Trend</span>
-        <Sparkline points={history} />
-        <ChangeBadge points={history} />
+        <Sparkline points={ownHistory} />
+        <ChangeBadge points={ownHistory} />
       </div>
 
       <div className="pt-cell pt-actions">
@@ -142,6 +269,8 @@ function TrackedRow({ p, history, busy, onToggle, onExtend }) {
           +{TRACKING_DAYS} days
         </button>
       </div>
+
+      <OtherPlatform p={p} listings={listings} onListing={onListing} onProduct={onProduct} />
     </div>
   );
 }
@@ -197,6 +326,7 @@ function AddTracking({ products, onTrack, busy }) {
 export default function PriceTrackerPage() {
   const [products, setProducts] = useState([]);
   const [history, setHistory] = useState({});
+  const [listings, setListings] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
@@ -207,15 +337,23 @@ export default function PriceTrackerPage() {
 
   async function load() {
     setLoading(true);
-    const [{ data: productData, error: pErr }, { data: historyData, error: hErr }] = await Promise.all([
+    const [
+      { data: productData, error: pErr },
+      { data: historyData, error: hErr },
+      { data: listingData, error: lErr },
+    ] = await Promise.all([
       supabase.from("products").select("*, categories(name)").order("created_at", { ascending: false }),
-      supabase.from("price_history").select("product_id, price, currency, checked_at").order("checked_at"),
+      supabase.from("price_history").select("product_id, listing_id, price, currency, checked_at").order("checked_at"),
+      supabase.from("product_listings").select("*, categories(name)").neq("match_status", "rejected"),
     ]);
-    if (pErr || hErr) setError((pErr || hErr).message);
+    if (pErr || hErr || lErr) setError((pErr || hErr || lErr).message);
     const grouped = {};
     for (const row of historyData || []) (grouped[row.product_id] ||= []).push(row);
+    const byProduct = {};
+    for (const row of listingData || []) (byProduct[row.product_id] ||= []).push(row);
     setProducts(productData || []);
     setHistory(grouped);
+    setListings(byProduct);
     setLoading(false);
   }
 
@@ -227,7 +365,7 @@ export default function PriceTrackerPage() {
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...updated } : x)));
       if (updated.is_tracked && !p.is_tracked) {
         // Pick up the baseline price row written when tracking started.
-        const { data } = await supabase.from("price_history").select("product_id, price, currency, checked_at")
+        const { data } = await supabase.from("price_history").select("product_id, listing_id, price, currency, checked_at")
           .eq("product_id", p.id).order("checked_at");
         setHistory((h) => ({ ...h, [p.id]: data || [] }));
       }
@@ -235,6 +373,18 @@ export default function PriceTrackerPage() {
       setError(err.message || "Couldn't update tracking. Try again.");
     }
     setBusyId(null);
+  }
+
+  // A listing was confirmed, rejected or added: rejected ones drop off the row.
+  function applyListing(listing) {
+    setListings((prev) => {
+      const rest = (prev[listing.product_id] || []).filter((l) => l.id !== listing.id);
+      return { ...prev, [listing.product_id]: listing.match_status === "rejected" ? rest : [...rest, listing] };
+    });
+  }
+
+  function applyProduct(updated) {
+    setProducts((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
   }
 
   // Everything that has ever been tracked: active first, then paused/ended, each
@@ -250,7 +400,8 @@ export default function PriceTrackerPage() {
   }, [products]);
 
   const renderRow = (p) => (
-    <TrackedRow key={p.id} p={p} history={history[p.id] || []} busy={busyId === p.id}
+    <TrackedRow key={p.id} p={p} history={history[p.id] || []} listings={listings[p.id] || []}
+      busy={busyId === p.id} onListing={applyListing} onProduct={applyProduct}
       onToggle={(x) => run(x, (y) => setTracking(y, !y.is_tracked))}
       onExtend={(x) => run(x, extendTracking)} />
   );
@@ -264,7 +415,8 @@ export default function PriceTrackerPage() {
           <h1 className="pt-title">Price Tracker</h1>
           <p className="pt-sub">
             Prices are checked at 10 AM, 2 PM and 5 PM (Dubai) for {TRACKING_DAYS} days per product. You get a
-            notification when a price drops below the lowest seen, and a day before tracking ends.
+            notification when a price drops below the lowest seen, and a day before tracking ends. Products from noon
+            or Amazon.ae are also checked on the other site when the same item is sold there.
           </p>
           <PushToggle />
         </div>

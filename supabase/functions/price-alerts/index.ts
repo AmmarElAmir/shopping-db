@@ -7,7 +7,9 @@
 // task only ever makes HTTP calls and never hits a tool-approval prompt.
 //
 // Price-drop alerts are written by the `trg_price_history_drop_alert` trigger
-// (see supabase/migrations/20261118000100_price_alerts.sql). The one-day-left
+// (see supabase/migrations/20261118000100_price_alerts.sql, updated in
+// 20261121000000_cross_platform_listings.sql to look across noon and
+// Amazon.ae, with the alert's store/link naming where the low was seen). The one-day-left
 // alerts are written here, from products.tracking_ends_at, so they still go
 // out on a day when a scrape fails.
 //
@@ -220,7 +222,7 @@ async function collect() {
   const { data, error } = await supabase
     .from("price_alerts")
     .select(
-      "id, kind, product_id, old_price, new_price, currency, tracking_ends_at, created_at, pushed_at, " +
+      "id, kind, product_id, old_price, new_price, currency, tracking_ends_at, created_at, pushed_at, store, link, " +
         "products(name, product_link, product_url, store, price, lowest_price, tracking_ends_at, is_tracked)",
     )
     .is("sent_at", null)
@@ -232,8 +234,10 @@ async function collect() {
     kind: a.kind,
     product_id: a.product_id,
     name: a.products?.name ?? null,
-    link: a.products?.product_link || a.products?.product_url || null,
-    store: a.products?.store ?? null,
+    // A drop can be on the product's own link or on the same item on the other
+    // platform (noon / Amazon.ae); the alert row says where.
+    link: a.link || a.products?.product_link || a.products?.product_url || null,
+    store: a.store || a.products?.store || null,
     currency: a.currency || "AED",
     old_price: num(a.old_price),
     new_price: num(a.new_price),
