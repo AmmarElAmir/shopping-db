@@ -344,7 +344,7 @@ export default function PriceTrackerPage() {
     ] = await Promise.all([
       supabase.from("products").select("*, categories(name)").order("created_at", { ascending: false }),
       supabase.from("price_history").select("product_id, listing_id, price, currency, checked_at").order("checked_at"),
-      supabase.from("product_listings").select("*, categories(name)").neq("match_status", "rejected"),
+      supabase.from("product_listings").select("*").neq("match_status", "rejected"),
     ]);
     if (pErr || hErr || lErr) setError((pErr || hErr || lErr).message);
     const grouped = {};
