@@ -146,6 +146,32 @@ function TrackedRow({ p, history, busy, onToggle, onExtend }) {
   );
 }
 
+const UNCATEGORIZED = "Uncategorized";
+const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base", numeric: true });
+
+// Groups products by their category, headings A to Z with Uncategorized last,
+// products sorted by name inside each group.
+function groupByCategory(items) {
+  const groups = new Map();
+  for (const p of items) {
+    const name = p.categories?.name || UNCATEGORIZED;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(p);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === UNCATEGORIZED) - (b === UNCATEGORIZED) || byName({ name: a }, { name: b }))
+    .map(([name, list]) => [name, list.sort(byName)]);
+}
+
+function GroupedList({ items, renderRow }) {
+  return groupByCategory(items).map(([name, list]) => (
+    <div className="pt-group" key={name}>
+      <h3 className="pt-group-title">{name} <span>({list.length})</span></h3>
+      <div className="pt-list">{list.map(renderRow)}</div>
+    </div>
+  ));
+}
+
 function AddTracking({ products, onTrack, busy }) {
   const [value, setValue] = useState("");
   if (products.length === 0) return null;
@@ -182,7 +208,7 @@ export default function PriceTrackerPage() {
   async function load() {
     setLoading(true);
     const [{ data: productData, error: pErr }, { data: historyData, error: hErr }] = await Promise.all([
-      supabase.from("products").select("*").order("created_at", { ascending: false }),
+      supabase.from("products").select("*, categories(name)").order("created_at", { ascending: false }),
       supabase.from("price_history").select("product_id, price, currency, checked_at").order("checked_at"),
     ]);
     if (pErr || hErr) setError((pErr || hErr).message);
@@ -211,17 +237,23 @@ export default function PriceTrackerPage() {
     setBusyId(null);
   }
 
-  // Everything that has ever been tracked: active first (soonest to end), then
-  // paused/ended. Untracked products only appear in the "Track another" picker.
+  // Everything that has ever been tracked: active first, then paused/ended, each
+  // grouped by category (A to Z, Uncategorized last) and sorted by name.
+  // Untracked products only appear in the "Track another" picker.
   const { active, inactive, untracked } = useMemo(() => {
     const everTracked = products.filter((p) => p.tracking_started_at);
     return {
-      active: everTracked.filter((p) => p.is_tracked)
-        .sort((a, b) => new Date(a.tracking_ends_at) - new Date(b.tracking_ends_at)),
+      active: everTracked.filter((p) => p.is_tracked),
       inactive: everTracked.filter((p) => !p.is_tracked),
       untracked: products.filter((p) => !p.tracking_started_at && (p.product_link || p.product_url)),
     };
   }, [products]);
+
+  const renderRow = (p) => (
+    <TrackedRow key={p.id} p={p} history={history[p.id] || []} busy={busyId === p.id}
+      onToggle={(x) => run(x, (y) => setTracking(y, !y.is_tracked))}
+      onExtend={(x) => run(x, extendTracking)} />
+  );
 
   if (loading) return <p>Loading…</p>;
 
@@ -251,25 +283,13 @@ export default function PriceTrackerPage() {
           {active.length === 0 ? (
             <p className="pt-meta">No products are being tracked right now.</p>
           ) : (
-            <div className="pt-list">
-              {active.map((p) => (
-                <TrackedRow key={p.id} p={p} history={history[p.id] || []} busy={busyId === p.id}
-                  onToggle={(x) => run(x, (y) => setTracking(y, !y.is_tracked))}
-                  onExtend={(x) => run(x, extendTracking)} />
-              ))}
-            </div>
+            <GroupedList items={active} renderRow={renderRow} />
           )}
 
           {inactive.length > 0 && (
             <>
               <h2 className="pt-section">Paused or ended ({inactive.length})</h2>
-              <div className="pt-list">
-                {inactive.map((p) => (
-                  <TrackedRow key={p.id} p={p} history={history[p.id] || []} busy={busyId === p.id}
-                    onToggle={(x) => run(x, (y) => setTracking(y, !y.is_tracked))}
-                    onExtend={(x) => run(x, extendTracking)} />
-                ))}
-              </div>
+              <GroupedList items={inactive} renderRow={renderRow} />
             </>
           )}
         </>
