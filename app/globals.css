@@ -1083,6 +1083,9 @@ form button {
 .pt-add-select { min-width: 240px; max-width: 360px; }
 .pt-section { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin: 24px 0 10px; }
 .pt-list { display: flex; flex-direction: column; gap: 10px; }
+.pt-group + .pt-group { margin-top: 18px; }
+.pt-group-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pt-group-title span { color: var(--text-secondary); font-weight: 500; }
 
 .pt-row {
   display: grid;
