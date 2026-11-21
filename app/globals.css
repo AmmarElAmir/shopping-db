@@ -1137,6 +1137,27 @@ a.pt-name:hover { text-decoration: underline; }
 }
 .pt-extend:disabled { opacity: 0.5; cursor: default; }
 
+/* Same item on the other platform (noon <-> Amazon.ae), a full-width strip
+   under the row's stats. */
+.pt-other {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border-top: 1px dashed var(--card-border);
+  padding-top: 10px;
+}
+.pt-other-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 240px; }
+.pt-other-name { font-size: 13px; color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.pt-other-name:hover { text-decoration: underline; }
+.pt-other-price { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pt-other-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+.pt-other-paste { display: flex; gap: 8px; align-items: center; flex: 1 1 100%; }
+.pt-other-paste .search-input { flex: 1; min-width: 0; }
+.pt-link-btn { background: none; border: none; padding: 0; font-size: 13px; color: var(--brand); cursor: pointer; }
+.pt-link-btn:disabled { opacity: 0.5; cursor: default; }
+
 @media (max-width: 900px) {
   /* Phone: the three prices share one row, trend and controls below. */
   .pt-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
@@ -1144,6 +1165,7 @@ a.pt-name:hover { text-decoration: underline; }
   .pt-row .pt-price { font-size: 15px; }
   .pt-trend { grid-column: span 2; }
   .pt-actions { align-items: flex-end; }
+  .pt-other-actions { margin-left: 0; }
   .pt-add { width: 100%; }
   .pt-add-select { flex: 1; min-width: 0; max-width: none; }
 }
