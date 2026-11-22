@@ -33,6 +33,10 @@
 // product (once per product; products.match_searched_at records it). "exact"
 // matches are stored as confirmed, "likely" ones as suggested for Ammar to
 // confirm on the tracker tab. A match's price is recorded as its first check.
+// When a match is another tracked row's own link (the same item added from
+// both sites), the two rows are linked instead: the row tracked first stays
+// primary and gets the listing, the later row stops being tracked on its own,
+// and neither is searched again. One check per site, never a loop.
 //
 // A listing check writes price_history with listing_id set and updates the
 // listing's price / lowest. Confirmed listings also lower
@@ -170,10 +174,10 @@ Deno.serve(async (req) => {
   const listingChecks: ListingCheck[] = [...(body.listing_checks || [])];
   for (const match of body.matches || []) {
     try {
-      const listingId = await storeMatch(supabase, match, nowIso);
-      matchResults.push({ product_id: match.product_id, status: "stored", listing_id: listingId });
-      if (typeof match.price === "number" && match.price > 0) {
-        listingChecks.push({ listing_id: listingId, price: match.price, currency: match.currency });
+      const stored = await storeMatch(supabase, match, nowIso);
+      matchResults.push({ product_id: match.product_id, status: "stored", listing_id: stored.listingId });
+      if (stored.price != null && !listingChecks.some((c) => c.listing_id === stored.listingId)) {
+        listingChecks.push({ listing_id: stored.listingId, price: stored.price, currency: stored.currency });
       }
     } catch (err) {
       const message = String(err.message || err);
@@ -296,25 +300,86 @@ function normaliseUrl(raw: string): string {
   return url.toString();
 }
 
+// Identity of a product page across URL shapes (short links, tracking params,
+// slugs): the Amazon ASIN or the noon catalogue code.
+function itemKey(url?: string | null, extra?: string | null): string | null {
+  const asin = asinOf(url) || asinOf(extra);
+  if (asin) return `amazon:${asin}`;
+  if (!url) return null;
+  if (NOON_RE.test(url)) {
+    const m = url.match(/\/([A-Z0-9]{8,})\/p(?:[/?#]|$)/i);
+    if (m) return `noon:${m[1].toUpperCase()}`;
+  }
+  return `url:${cleanUrl(url)}`;
+}
+
+function canonicalUrl(url: string, extra?: string | null): string {
+  const asin = asinOf(url) || asinOf(extra);
+  return asin ? `https://www.amazon.ae/dp/${asin}` : cleanUrl(url);
+}
+
+type MatchStored = { listingId: string; price: number | null; currency: string | null };
+
+// Stores a match as a listing. When the matched page is another product row's
+// own link (Ammar added the same item from both sites), the two rows are linked
+// instead of each getting a listing of the other: the row tracked first stays
+// primary and gets the listing, and the later row stops being tracked on its
+// own (it is checked through the listing). So each item is checked once on
+// noon and once on Amazon, and the search never runs back the other way.
 async function storeMatch(
   supabase: ReturnType<typeof createClient>,
   match: Match,
   nowIso: string,
-): Promise<string> {
+): Promise<MatchStored> {
   if (!match.product_id || !match.url) throw new Error("product_id and url are required");
   if (match.store !== "noon" && match.store !== "amazon") throw new Error("store must be noon or amazon");
   if (match.confidence !== "exact" && match.confidence !== "likely") {
     throw new Error("confidence must be exact or likely");
   }
-  const url = normaliseUrl(match.url);
 
-  const { data: existing, error: exErr } = await supabase
+  const cols = "id, store, product_link, product_url, price, currency, tracking_started_at, created_at";
+  const { data: self, error: sErr } = await supabase.from("products").select(cols).eq("id", match.product_id).single();
+  if (sErr) throw sErr;
+  const key = itemKey(match.url);
+  const { data: others, error: oErr } = await supabase
+    .from("products")
+    .select(cols)
+    .neq("id", match.product_id)
+    .not("tracking_started_at", "is", null);
+  if (oErr) throw oErr;
+  const dup = key ? (others || []).find((o) => itemKey(o.product_link || o.product_url, o.product_url) === key) : null;
+
+  const firstTracked = (p: { tracking_started_at: string | null; created_at: string }) =>
+    new Date(p.tracking_started_at || p.created_at).getTime();
+  let primary = self;
+  let secondary: typeof self | null = null;
+  let url = canonicalUrl(match.url);
+  let store: "noon" | "amazon" = match.store;
+  let price = typeof match.price === "number" && match.price > 0 ? match.price : null;
+  let currency = match.currency || null;
+  if (dup) {
+    if (firstTracked(dup) < firstTracked(self)) {
+      // The matched page is the older row: it stays primary, and this row's
+      // own link becomes its listing.
+      primary = dup;
+      secondary = self;
+      const link = self.product_link || self.product_url || "";
+      url = canonicalUrl(link, self.product_url);
+      store = platformOf(link, self.store) === "amazon" ? "amazon" : "noon";
+      price = self.price != null ? Number(self.price) : null;
+      currency = self.currency || null;
+    } else {
+      secondary = dup;
+    }
+  }
+
+  const { data: existingRows, error: exErr } = await supabase
     .from("product_listings")
-    .select("id, match_status")
-    .eq("product_id", match.product_id)
-    .eq("url", url)
-    .maybeSingle();
+    .select("id, url, match_status")
+    .eq("product_id", primary.id);
   if (exErr) throw exErr;
+  const listingKey = itemKey(url);
+  const existing = (existingRows || []).find((l) => l.url === url || (listingKey && itemKey(l.url) === listingKey));
 
   let listingId: string;
   if (existing) {
@@ -325,12 +390,12 @@ async function storeMatch(
     const { data, error } = await supabase
       .from("product_listings")
       .insert({
-        product_id: match.product_id,
-        store: match.store,
+        product_id: primary.id,
+        store,
         url,
         title: match.title || null,
         match_status: match.confidence === "exact" ? "confirmed" : "suggested",
-        match_note: match.note || null,
+        match_note: match.note || (secondary ? "Same item you added from both sites" : null),
       })
       .select("id")
       .single();
@@ -341,9 +406,16 @@ async function storeMatch(
   const { error: pErr } = await supabase
     .from("products")
     .update({ match_searched_at: nowIso, match_search_note: null })
-    .eq("id", match.product_id);
+    .eq("id", primary.id);
   if (pErr) throw pErr;
-  return listingId;
+  if (secondary) {
+    const { error: secErr } = await supabase
+      .from("products")
+      .update({ is_tracked: false, match_searched_at: nowIso, match_search_note: null })
+      .eq("id", secondary.id);
+    if (secErr) throw secErr;
+  }
+  return { listingId, price, currency };
 }
 
 async function recordListingCheck(
@@ -505,9 +577,17 @@ async function buildPlan(supabase: ReturnType<typeof createClient>, nowIso: stri
       ...fetchPlan(l.url, l.store),
     }));
 
+  // Pages that are already some product's other-platform listing. A product
+  // whose own link is one of them is the other half of a linked pair, so it
+  // is never searched (that would link the pair again in reverse).
+  const listedKeys = new Set(
+    allListings.filter((l) => l.match_status !== "rejected").map((l) => itemKey(l.url)).filter(Boolean),
+  );
+
   const searches = rows
     .filter((p) => !p.match_searched_at)
     .filter((p) => !allListings.some((l) => l.product_id === p.id && l.match_status !== "rejected"))
+    .filter((p) => !listedKeys.has(itemKey(p.product_link || p.product_url, p.product_url)))
     .map((p) => {
       const link = p.product_link || p.product_url || "";
       const platform = platformOf(link, p.store);
