@@ -7,6 +7,14 @@
 // and POSTs all results here in one request. This function owns every write,
 // so the unattended run never hits a tool-approval prompt.
 //
+// Plan (call first, saves the run its Supabase reads):
+//   { "action": "plan" }  ->  { ok, products: [...], listings: [...], searches: [...] }
+//   Each product / listing comes with the exact URL to fetch (fetch_url) and how
+//   to read it (read). Amazon items with a known ASIN go straight to the offers
+//   listing. searches lists products that still need a one-time search on the
+//   other platform, with a ready search URL, the rejected URLs, and any tracked
+//   product on that platform that may already be the same item (candidates).
+//
 // Request body:
 //   {
 //     "checks":   [{ "product_id", "price", "currency" }],
@@ -59,6 +67,10 @@ interface Check {
   product_id: string;
   price: number;
   currency?: string | null;
+  // Amazon only: the full amazon.ae/dp/<ASIN> URL a short link resolved to.
+  // Stored in products.product_url (the legacy alias; product_link still wins
+  // everywhere in the app) so later plans can go straight to the offers listing.
+  resolved_url?: string | null;
 }
 
 interface Failure {
@@ -119,6 +131,15 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const nowIso = new Date().toISOString();
+
+  if ((body as { action?: string }).action === "plan") {
+    try {
+      return Response.json({ ok: true, ...(await buildPlan(supabase, nowIso)) });
+    } catch (err) {
+      return Response.json({ ok: false, error: String(err.message || err) }, { status: 500 });
+    }
+  }
+
   const results: Outcome[] = [];
 
   for (const check of body.checks || []) {
@@ -224,7 +245,7 @@ async function recordCheck(
 
   const { data: p, error } = await supabase
     .from("products")
-    .select("id, currency, lowest_price, is_tracked, tracking_ends_at")
+    .select("id, currency, lowest_price, is_tracked, tracking_ends_at, product_url")
     .eq("id", check.product_id)
     .maybeSingle();
   if (error) throw error;
@@ -254,6 +275,8 @@ async function recordCheck(
     update.lowest_price = check.price;
     update.lowest_price_at = nowIso;
   }
+  const asin = asinOf(check.resolved_url);
+  if (asin && !p.product_url) update.product_url = `https://www.amazon.ae/dp/${asin}`;
   const { error: updError } = await supabase.from("products").update(update).eq("id", p.id);
   if (updError) throw updError;
 
@@ -379,4 +402,151 @@ async function recordListingCheck(
   }
 
   return { listing_id: l.id, status: "recorded" };
+}
+
+// ---------------------------------------------------------------------------
+// Plan: everything a run needs, so it can skip the Supabase reads.
+
+const AMAZON_RE = /(amazon\.|amzn\.)/i;
+const NOON_RE = /noon\.com/i;
+
+function asinOf(url?: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?:[/?#]|$)/i) ||
+    url.match(/[?&]asin=([A-Z0-9]{10})/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+function platformOf(link: string, store?: string | null): "amazon" | "noon" | null {
+  if (AMAZON_RE.test(link) || /^amazon/i.test(store || "")) return "amazon";
+  if (NOON_RE.test(link) || /^noon/i.test(store || "")) return "noon";
+  return null;
+}
+
+function cleanUrl(raw: string): string {
+  try {
+    return normaliseUrl(raw);
+  } catch {
+    return raw;
+  }
+}
+
+const READ_NOON = "noon page: the price in the JSON-LD \"offers\" block (a second price in that blob is the struck-through one)";
+const READ_AOD = "Amazon offers listing: lowest NEW offer, prefer sold by the brand or Amazon";
+const READ_AMAZON_SHORT =
+  "Amazon short link: open it (Nimble vx6, plain_text), take the ASIN from the /dp/ URL it resolves to, then read the offers listing https://www.amazon.ae/gp/product/ajax/aodAjaxMain/?asin=<ASIN>&pc=dp. Send resolved_url with the check.";
+const READ_PAGE = "product page: current selling price";
+
+function fetchPlan(link: string, store?: string | null, extra?: string | null) {
+  const platform = platformOf(link, store);
+  if (platform === "amazon") {
+    const asin = asinOf(link) || asinOf(extra);
+    if (asin) {
+      return {
+        platform,
+        asin,
+        fetch_url: `https://www.amazon.ae/gp/product/ajax/aodAjaxMain/?asin=${asin}&pc=dp`,
+        read: READ_AOD,
+      };
+    }
+    return { platform, asin: null, fetch_url: link, read: READ_AMAZON_SHORT };
+  }
+  if (platform === "noon") return { platform, fetch_url: cleanUrl(link), read: READ_NOON };
+  return { platform, fetch_url: link, read: READ_PAGE };
+}
+
+function searchQuery(name: string): string {
+  // Brand + model words; drop marketing tails after " - " / "," and keep it short.
+  const base = name.split(/,| for | with /i)[0];
+  return base.replace(/[^\p{L}\p{N}\s-]/gu, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 8).join(" ");
+}
+
+async function buildPlan(supabase: ReturnType<typeof createClient>, nowIso: string) {
+  const { data: tracked, error } = await supabase
+    .from("products")
+    .select("id, name, store, product_link, product_url, price, currency, lowest_price, description, match_searched_at")
+    .eq("is_tracked", true)
+    .gt("tracking_ends_at", nowIso);
+  if (error) throw error;
+  const rows = tracked || [];
+  const ids = rows.map((p) => p.id);
+
+  const { data: listingRows, error: lErr } = ids.length
+    ? await supabase
+      .from("product_listings")
+      .select("id, product_id, store, url, title, match_status, price")
+      .in("product_id", ids)
+    : { data: [], error: null };
+  if (lErr) throw lErr;
+  const allListings = listingRows || [];
+
+  const products = rows
+    .map((p) => {
+      const link = p.product_link || p.product_url;
+      if (!link) return null;
+      return {
+        product_id: p.id,
+        name: p.name,
+        last_price: p.price != null ? Number(p.price) : null,
+        currency: p.currency || "AED",
+        ...fetchPlan(link, p.store, p.product_url),
+      };
+    })
+    .filter(Boolean) as Array<Record<string, unknown> & { product_id: string; platform: string | null; fetch_url: string }>;
+
+  const listings = allListings
+    .filter((l) => l.match_status === "confirmed" || l.match_status === "suggested")
+    .map((l) => ({
+      listing_id: l.id,
+      product_id: l.product_id,
+      title: l.title,
+      match_status: l.match_status,
+      last_price: l.price != null ? Number(l.price) : null,
+      ...fetchPlan(l.url, l.store),
+    }));
+
+  const searches = rows
+    .filter((p) => !p.match_searched_at)
+    .filter((p) => !allListings.some((l) => l.product_id === p.id && l.match_status !== "rejected"))
+    .map((p) => {
+      const link = p.product_link || p.product_url || "";
+      const platform = platformOf(link, p.store);
+      if (!platform) return null;
+      const other = platform === "noon" ? "amazon" : "noon";
+      const q = searchQuery(p.name || "");
+      const rejected = allListings
+        .filter((l) => l.product_id === p.id && l.match_status === "rejected")
+        .map((l) => l.url);
+      // Tracked products already on the other platform: if one is the same
+      // item, report it as the match and skip the search.
+      const candidates = products
+        .filter((o) => o.product_id !== p.id && o.platform === other)
+        // An Amazon short link has no canonical URL to store yet; skip it.
+        .filter((o) => other !== "amazon" || (o as { asin?: string | null }).asin)
+        .map((o) => {
+          const own = rows.find((r) => r.id === o.product_id)!;
+          const asin = (o as { asin?: string | null }).asin;
+          return {
+            product_id: o.product_id,
+            name: own.name,
+            url: other === "amazon" && asin ? `https://www.amazon.ae/dp/${asin}` : cleanUrl(own.product_link || own.product_url || ""),
+            fetch_url: o.fetch_url,
+            last_price: own.price != null ? Number(own.price) : null,
+          };
+        });
+      return {
+        product_id: p.id,
+        name: p.name,
+        from: platform,
+        search_store: other,
+        search_url: other === "amazon"
+          ? `https://www.amazon.ae/s?k=${encodeURIComponent(q)}`
+          : `https://www.noon.com/uae-en/search/?q=${encodeURIComponent(q)}`,
+        rejected_urls: rejected,
+        candidates,
+      };
+    })
+    .filter(Boolean);
+
+  return { products, listings, searches };
 }
