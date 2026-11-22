@@ -7,6 +7,7 @@ import {
   addListingByHand,
   confirmListing,
   extendTracking,
+  itemKey,
   otherPlatformOf,
   platformLabel,
   rejectListing,
@@ -391,13 +392,26 @@ export default function PriceTrackerPage() {
   // grouped by category (A to Z, Uncategorized last) and sorted by name.
   // Untracked products only appear in the "Track another" picker.
   const { active, inactive, untracked } = useMemo(() => {
-    const everTracked = products.filter((p) => p.tracking_started_at);
+    // A product whose own link is another product's noon/Amazon listing is the
+    // second half of a linked pair: it is shown (and checked) as that listing,
+    // under the product tracked first, not as a row of its own.
+    const linked = new Set();
+    for (const [ownerId, rows] of Object.entries(listings)) {
+      for (const l of rows) {
+        const key = itemKey(l.url);
+        if (!key) continue;
+        for (const p of products) {
+          if (p.id !== ownerId && itemKey(p.product_link || p.product_url, p.product_url) === key) linked.add(p.id);
+        }
+      }
+    }
+    const everTracked = products.filter((p) => p.tracking_started_at && !linked.has(p.id));
     return {
       active: everTracked.filter((p) => p.is_tracked),
       inactive: everTracked.filter((p) => !p.is_tracked),
       untracked: products.filter((p) => !p.tracking_started_at && (p.product_link || p.product_url)),
     };
-  }, [products]);
+  }, [products, listings]);
 
   const renderRow = (p) => (
     <TrackedRow key={p.id} p={p} history={history[p.id] || []} listings={listings[p.id] || []}
